@@ -1,0 +1,16 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/slice/game_world.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/slice/sector_s1_strand.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/ui/debug_overlay.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/ui_core/interaction_prompt_host.tscn" id="4"]
+
+[node name="SliceMain" type="Node"]
+script = ExtResource("1")
+slice_seed = 1337
+
+[node name="SectorS1" parent="." instance=ExtResource("2")]
+
+[node name="DebugOverlay" parent="." instance=ExtResource("3")]
+
+[node name="InteractionPromptHost" parent="." instance=ExtResource("4")]

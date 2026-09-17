@@ -1,0 +1,121 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/world/graybox_block.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/slice/human_presence.tscn" id="3"]
+
+[sub_resource type="PlaneMesh" id="floor_mesh"]
+size = Vector2(20, 20)
+
+[sub_resource type="BoxShape3D" id="floor_shape"]
+size = Vector3(20, 0.1, 20)
+
+[node name="SectorS1" type="Node3D"]
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 10, 0)
+
+[node name="StrandFloor" type="StaticBody3D" parent="."]
+collision_layer = 1
+collision_mask = 0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="StrandFloor"]
+mesh = SubResource("floor_mesh")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StrandFloor"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0)
+shape = SubResource("floor_shape")
+
+[node name="ClimbBlock" parent="." instance=ExtResource("2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0.5, 3)
+affordance = "climb"
+
+[node name="Crate01" parent="." instance=ExtResource("2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0.4, 3)
+affordance = "open"
+object_id = "crate_01"
+block_size = Vector3(0.8, 0.8, 0.8)
+block_color = Color(0.45, 0.36, 0.24, 1)
+
+[node name="Supply01" parent="." instance=ExtResource("2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0.275, -3)
+affordance = "collect"
+object_id = "supply_01"
+block_size = Vector3(0.5, 0.55, 0.5)
+block_color = Color(0.6, 0.55, 0.3, 1)
+
+[node name="Damage01" parent="." instance=ExtResource("2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0.275, -2)
+affordance = "inspect"
+object_id = "damage_01"
+trace_kind = "DAMAGE"
+block_size = Vector3(1.4, 0.55, 1.2)
+block_color = Color(0.3, 0.28, 0.26, 1)
+
+[node name="Trail01" parent="." instance=ExtResource("2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 0.275, 1.5)
+affordance = "inspect"
+object_id = "trail_01"
+trace_kind = "FOOTPRINTS"
+block_size = Vector3(1.4, 0.55, 1.2)
+block_color = Color(0.35, 0.34, 0.3, 1)
+
+[node name="Weather01" parent="." instance=ExtResource("2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 0.275, 4.7)
+affordance = "inspect"
+object_id = "weather_01"
+trace_kind = "WEATHER"
+block_size = Vector3(1.2, 0.55, 1)
+block_color = Color(0.28, 0.32, 0.36, 1)
+
+[node name="Disturbed01" parent="." instance=ExtResource("2")]
+transform = Transform3D(0.9063, 0, -0.4226, 0, 1, 0, 0.4226, 0, 0.9063, 4.5, 0.4, -2.5)
+affordance = "inspect"
+object_id = "disturbed_01"
+trace_kind = "DISTURBED"
+block_size = Vector3(0.7, 0.7, 0.7)
+block_color = Color(0.4, 0.35, 0.28, 1)
+
+[node name="TemporaryCover" parent="." instance=ExtResource("2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 2.2, -6)
+shelter_radius = 2.8
+block_size = Vector3(3, 0.2, 3)
+block_color = Color(0.32, 0.3, 0.28, 1)
+
+[node name="RestSite01" parent="." instance=ExtResource("2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0.25, -6)
+affordance = "rest"
+object_id = "rest_site_01"
+shelter_radius = 1.8
+block_size = Vector3(1.2, 0.5, 0.8)
+block_color = Color(0.36, 0.33, 0.26, 1)
+
+[node name="SurveyPoint01" parent="." instance=ExtResource("2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0.25, -6)
+affordance = "survey"
+object_id = "survey_point_01"
+block_size = Vector3(0.8, 0.5, 0.8)
+block_color = Color(0.34, 0.37, 0.4, 1)
+
+[node name="Evidence01" parent="." instance=ExtResource("2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.2, 0.25, -3.9)
+affordance = "record"
+object_id = "evidence_01"
+block_size = Vector3(0.6, 0.5, 0.6)
+block_color = Color(0.42, 0.38, 0.3, 1)
+
+[node name="Conceal01" parent="." instance=ExtResource("2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, -6)
+affordance = "conceal"
+object_id = "conceal_01"
+block_size = Vector3(1.8, 0.9, 1.8)
+block_color = Color(0.3, 0.35, 0.28, 1)
+
+[node name="HumanPresence01" parent="." instance=ExtResource("3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 0, -6)
+
+[node name="SpawnMarker" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+
+[node name="Player" parent="." instance=ExtResource("1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)

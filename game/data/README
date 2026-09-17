@@ -1,0 +1,50 @@
+# BLACK VECTOR — Runtime Data Layout
+
+This directory documents runtime data structure.
+Actual data lives in `user://` at runtime (mobile: Android app storage).
+
+## user:// layout (runtime)
+
+```
+user://saves/slice/
+  slot_00.save    — LIVING SAVE manifest (JSON, schema v1)
+  slot_01.save
+  ...
+
+user://settings/
+  slice_settings.cfg  — ConfigFile: input profile, camera, overlays
+```
+
+## save schema v1
+
+```json
+{
+  "manifest": "black_vector_slice_living_save",
+  "schema": 1,
+  "seed": 42,
+  "clock": 8.0,
+  "world": {
+    "seed": 42,
+    "time": "DAWN",
+    "weather": "CLEAR",
+    "facility": "DORMANT",
+    "aftermath": "NONE",
+    "wildlife": "QUIET"
+  },
+  "player": {
+    "seed": 42,
+    "position": [0, 1, 0],
+    "checkpoint": [0, 1, 0],
+    "body": {
+      "CORE_TEMP": 1.0,
+      "CONDITION": 1.0,
+      "EXERTION": 0.0,
+      "WETNESS": 0.0,
+      "FATIGUE": 0.0
+    }
+  }
+}
+```
+
+Writer: `scripts/slice/save_state_manager.gd` (single writer).
+Settings: `scripts/slice/settings_store.gd` (own domain, settings-save).

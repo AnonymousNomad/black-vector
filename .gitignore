@@ -1,0 +1,13 @@
+# Godot 4 editor / import cache
+.godot/
+
+# OS clutter
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Build/export output
+game/build/
+*.apk
+*.aab
+*.tmp
