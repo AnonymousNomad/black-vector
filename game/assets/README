@@ -1,0 +1,4 @@
+# BLACK VECTOR — Reserved Assets
+
+Reserved for game art assets. The baseline uses primitives and has no art assets here yet.
+This tracked file preserves the required directory when cloning with Git, which does not track empty directories.

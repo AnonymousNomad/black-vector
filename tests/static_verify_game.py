@@ -22,6 +22,7 @@ Exit code 0 = clean; 1 = issues found. Uses stdlib only.
 import os
 import re
 import sys
+from pathlib import Path
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GAME = os.path.join(ROOT, "game")
@@ -282,7 +283,7 @@ SLICE_MANAGERS = (
     "game/scripts/slice/game_world.gd",
 )
 
-INPUT_ADAPTER_DIR = os.path.join(GAME, "scripts/input")
+INPUT_ADAPTER_DIR = Path("game/scripts/input")
 RAW_INPUT_TOKENS = (
     "InputEventScreenTouch",
     "InputEventScreenDrag",
@@ -292,11 +293,11 @@ RAW_INPUT_TOKENS = (
 )
 
 RAW_INPUT_WHITELIST = {
-    "game/scripts/player/camera_rig.gd": {"InputEventMouse"},
+    Path("game/scripts/player/camera_rig.gd"): {"InputEventMouse"},
 }
 
-WRITE_WRITERS = (os.path.join(ROOT, "game/scripts/slice/save_state_manager.gd"),
-                 os.path.join(ROOT, "game/scripts/slice/settings_store.gd"))
+WRITE_WRITERS = (Path("game/scripts/slice/save_state_manager.gd"),
+                 Path("game/scripts/slice/settings_store.gd"))
 
 
 def verify_autoloads(config: str) -> list:
@@ -317,13 +318,13 @@ def verify_autoloads(config: str) -> list:
 def verify_input_isolation() -> list:
     issues = []
     for dirpath, _dirs, files in os.walk(GAME):
-        if os.path.commonpath([dirpath, INPUT_ADAPTER_DIR]) == INPUT_ADAPTER_DIR:
+        if Path(dirpath).relative_to(ROOT).is_relative_to(INPUT_ADAPTER_DIR):
             continue
         for name in files:
             if not name.endswith(".gd"):
                 continue
             full = os.path.join(dirpath, name)
-            rel = os.path.relpath(full, ROOT)
+            rel = Path(full).relative_to(ROOT)
             with open(full, "r", encoding="utf-8") as fh:
                 text = fh.read()
             allowed = RAW_INPUT_WHITELIST.get(rel, set())
@@ -346,7 +347,7 @@ def verify_writer_ownership() -> list:
                     continue
             except OSError:
                 continue
-            if full not in WRITE_WRITERS:
+            if Path(full).relative_to(ROOT) not in WRITE_WRITERS:
                 issues.append(f"file-writer outside permitted managers: {os.path.relpath(full, ROOT)}")
     return issues
 
