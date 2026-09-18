@@ -27,7 +27,7 @@ func _on_object_changed(id: String) -> void:
 	_door_narrated = true
 	if narrative == null:
 		return
-	narrative.emit_inner_thought("beat_cannery_unsealed", "inner_cannery_unsealed", {})
+	narrative.emit_inner_thought("beat_cannery_unsealed", "inner_cannery_unsealed", {}, true)
 	if world and not world.has_seen("beat_cannery_seen"):
 		world.mark_seen("beat_cannery_seen")
 		narrative.note_observable("f1_gyle_cannery", "reality_gyle_cannery")
