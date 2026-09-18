@@ -5,6 +5,9 @@ const SLOT_TOOL := "tool"
 const SLOT_MEDICAL := "medical"
 const SLOT_SUPPLIES := "supplies"
 const SLOT_OBSERVATION := "observation"
+const SLOT_WEAPON := "weapon"
+const SLOT_AMMO := "ammo"
+const SLOT_PERSONAL := "personal"
 
 var id := ""
 var slot := ""
@@ -27,10 +30,13 @@ static func create(p_id: String, p_slot: String, p_name: String, p_ownership: St
 
 static func baseline_kit() -> Array[FieldItem]:
 	return [
-		create("field_knife", SLOT_TOOL, "Field Knife", "UNIT MARKINGS REMOVED", 0.62, ["field issue", "confiscated at intake", "kept on person"], ["USE", "INSPECT"]),
+		create("boot_knife", SLOT_TOOL, "Boot Knife", "UNIT MARKINGS REMOVED", 0.62, ["kept on person through intake"], ["USE", "INSPECT"]),
 		create("medical_kit", SLOT_MEDICAL, "Medical Kit", "ISLAND STORES", 0.8, ["partially depleted"], ["USE", "INSPECT", "TREAT"]),
 		create("field_supplies", SLOT_SUPPLIES, "Field Supplies", "ISLAND STORES", 0.7, ["rationed"], ["USE", "INSPECT"]),
 		create("observation_kit", SLOT_OBSERVATION, "Observation Kit", "OVERWATCH RECON", 0.9, ["carried through intake"], ["SURVEY", "INSPECT", "RECORD"]),
+		create("sidearm", SLOT_WEAPON, "Sidearm", "UNIT MARKINGS REMOVED", 0.55, ["worn from use", "few magazines to hand"], ["INSPECT"]),
+		create("magazines", SLOT_AMMO, "Magazines (limited)", "UNIT MARKINGS REMOVED", 0.6, ["one loaded, one spare"], ["INSPECT"]),
+		create("photograph", SLOT_PERSONAL, "Photograph", "CARRIED THROUGH INTAKE", 0.4, ["worn at the edges", "a woman in the frame - familiar, unable to place her"], ["INSPECT"]),
 	]
 
 func to_dict() -> Dictionary:

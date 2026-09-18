@@ -283,6 +283,16 @@ SLICE_MANAGERS = (
     "game/scripts/slice/game_world.gd",
 )
 
+D032_SLICE_MANAGERS = (
+    "game/scripts/slice/cannery_state.gd",
+    "game/scripts/slice/beat_staging.gd",
+)
+
+D032_CANNERY_SCENE = "game/scenes/slice/sector_f1_gyle_cannery.tscn"
+D032_SLICE_EXCLUDED_TERMS = re.compile(
+    r"\bSECOND\b|\bshade\b|\banomaly\b|focus[ _-]?exchange|telekines\w*|telekinetic",
+    re.IGNORECASE)
+
 INPUT_ADAPTER_DIR = Path("game/scripts/input")
 RAW_INPUT_TOKENS = (
     "InputEventScreenTouch",
@@ -399,6 +409,79 @@ def verify_self_check_harness() -> list:
     return issues
 
 
+def verify_d032_slice() -> list:
+    issues = []
+    for rel in D032_SLICE_MANAGERS:
+        if not os.path.isfile(os.path.join(ROOT, rel)):
+            issues.append(f"D032 slice manager missing: {rel}")
+
+    cannery_rel = D032_CANNERY_SCENE
+    if not os.path.isfile(os.path.join(ROOT, cannery_rel)):
+        issues.append(f"D032 cannery scene missing: {cannery_rel}")
+        return issues
+    cannery = _read_rel(os.path.join(ROOT, cannery_rel))
+
+    if "CanneryPad" not in cannery:
+        issues.append("D032: cannery scene missing approach/production pad floor")
+    if 'affordance = "open"' not in cannery or "f1_gyle_cannery_door" not in cannery:
+        issues.append("D032: cannery EntryDoor must be a functional OPEN object (f1_gyle_cannery_door)")
+    if "f1_gyle_cannery_light" not in cannery or "InteriorLight" not in cannery:
+        issues.append("D032: cannery light switch + InteriorLight must be present")
+    if "f1_gyle_cannery_gate" not in cannery:
+        issues.append("D032: cannery deeper gate object (f1_gyle_cannery_gate) missing")
+    if 'presence_id = "presence_f1"' not in cannery:
+        issues.append("D032: cannery must host one generic shielded presence (presence_f1, not SECOND)")
+
+    host = _read_rel(os.path.join(ROOT, "game/scenes/slice/slice_main.tscn"))
+    if "sector_f1_gyle_cannery.tscn" not in host:
+        issues.append("D032: slice_main must instance the cannery as a sibling scene")
+    if 'name="GyleCannery"' not in host:
+        issues.append("D032: slice_main must name the cannery sibling GyleCannery")
+    strand = _read_rel(os.path.join(ROOT, "game/scenes/slice/sector_s1_strand.tscn"))
+    if "sector_f1_gyle_cannery.tscn" in strand:
+        issues.append("D032: cannery must NOT be embedded inside sector_s1_strand")
+
+    field_item = _read_rel(os.path.join(ROOT, "game/scripts/slice/field_item.gd"))
+    for kit_id in ("boot_knife", "sidearm", "magazines", "photograph"):
+        if f'create("{kit_id}"' not in field_item:
+            issues.append(f"D032: starting kit missing {kit_id}")
+    for slot in ('SLOT_WEAPON := "weapon"', 'SLOT_AMMO := "ammo"', 'SLOT_PERSONAL := "personal"'):
+        if slot not in field_item:
+            issues.append(f"D032: equipment slot undeclared: {slot}")
+    if "FIRE" in field_item or "SHOOT" in field_item:
+        issues.append("D032: starting sidearm must be persistent equipment only (no firing hooks)")
+
+    narrative = _read_rel(os.path.join(ROOT, "game/scripts/slice/narrative_channels.gd"))
+    beats = _read_rel(os.path.join(ROOT, "game/scripts/slice/beat_staging.gd"))
+    for key in ("inner_strand_awakening", "inner_photograph", "inner_cannery_unsealed", "reality_gyle_cannery"):
+        if f'"{key}"' not in narrative:
+            issues.append(f"D032: narrative TEXT key missing: {key}")
+        if key not in beats:
+            issues.append(f"D032: narrative key not staged by beat_staging: {key}")
+
+    prohibited = 0
+    for dirpath, dirs, files in os.walk(GAME):
+        dirs[:] = [d for d in dirs if d not in GENERATED_SKIP_DIRS]
+        for name in files:
+            if not (name.endswith(".gd") or name.endswith(".tscn")):
+                continue
+            full = os.path.join(dirpath, name)
+            try:
+                lines = _read_rel(full).splitlines()
+            except OSError:
+                continue
+            for line in lines:
+                if "BUS_ANOMALY" in line:
+                    continue
+                if D032_SLICE_EXCLUDED_TERMS.search(line):
+                    prohibited += 1
+                    issues.append(f"D032 excluded narrative term in {os.path.relpath(full, ROOT)}")
+                    break
+            if prohibited:
+                break
+    return issues
+
+
 def main() -> int:
     ok = []
     issues = []
@@ -492,6 +575,12 @@ def main() -> int:
         issues.extend(self_check_issues[:5])
     else:
         ok.append("on-device self-check harness present")
+
+    d032_issues = verify_d032_slice()
+    if d032_issues:
+        issues.extend(d032_issues[:8])
+    else:
+        ok.append("D032 slice-1 invariants hold (kit/narrative/cannery scene, exclusions clean)")
 
     census = verify_slice_node_census()
     ok.append(f"slice scene static node census: {census} nodes (target < 1200)")

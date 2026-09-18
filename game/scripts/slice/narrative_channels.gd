@@ -15,6 +15,10 @@ const TEXT := {
 	"corley_warn": "Don't.",
 	"inner_keep_distance": "Keep your distance.",
 	"unknown_placeholder": "...",
+	"inner_strand_awakening": "Woke on the strand with the bare kit - sidearm, few magazines, a knife, the photograph.",
+	"inner_photograph": "The photograph. Carried it through intake without remembering why.",
+	"inner_cannery_unsealed": "The bay door gives. The cannery is open.",
+	"reality_gyle_cannery": "Gyle Cannery. A marine workshed, gone quiet.",
 }
 
 const INTENT_TEXT := {

@@ -14,6 +14,8 @@ const WORLD_CHANNELS := "WorldState"
 const NARRATIVE := "Narrative"
 const CONTACT := "Contact"
 const PRESENTER := "Presentation"
+const CANNERY := "CanneryState"
+const BEATS := "BeatStaging"
 
 @export var slice_seed := 0
 
@@ -30,6 +32,8 @@ var tactical: TacticalManager
 var narrative: NarrativeChannels
 var contact: ContactManager
 var presenter: NarrativePresenter
+var cannery: CanneryState
+var beats: BeatStaging
 var _player_body: BodyState
 var _player_signature: SignatureController
 var _move_trace_accum := 0.0
@@ -93,6 +97,12 @@ func build_services() -> void:
 	save_state = SaveStateManager.new()
 	save_state.name = SAVE_STATE
 	add_child(save_state)
+	cannery = CanneryState.new()
+	cannery.name = CANNERY
+	add_child(cannery)
+	beats = BeatStaging.new()
+	beats.name = BEATS
+	add_child(beats)
 
 func wire_services() -> void:
 	time_weather.setup(world_state)
@@ -110,6 +120,13 @@ func wire_services() -> void:
 	player_state.seed_equipment(FieldItem.baseline_kit())
 	save_state.setup(world_state, player_state, time_weather, pressure)
 	save_state.load_completed.connect(_on_load_completed)
+	var cannery_root := get_node_or_null("GyleCannery") as Node3D
+	if cannery_root:
+		cannery.setup(world_state, save_state, cannery_root)
+	else:
+		push_warning("D032: GyleCannery sub-scene not found")
+	beats.setup(world_state, narrative)
+	beats.stage_awakening()
 	world_state.channel_changed.connect(_on_channel_changed)
 	interaction.action_resolved.connect(_on_action_resolved)
 	add_to_group("game_world")

@@ -1,15 +1,19 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/slice/game_world.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/slice/sector_s1_strand.tscn" id="2"]
 [ext_resource type="PackedScene" path="res://scenes/ui/debug_overlay.tscn" id="3"]
 [ext_resource type="PackedScene" path="res://scenes/ui_core/interaction_prompt_host.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://scenes/slice/sector_f1_gyle_cannery.tscn" id="5"]
 
 [node name="SliceMain" type="Node"]
 script = ExtResource("1")
 slice_seed = 1337
 
 [node name="SectorS1" parent="." instance=ExtResource("2")]
+
+[node name="GyleCannery" parent="." instance=ExtResource("5")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, 0, 0)
 
 [node name="DebugOverlay" parent="." instance=ExtResource("3")]
 
