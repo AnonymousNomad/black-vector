@@ -70,7 +70,7 @@ func _toggle_light() -> void:
 		_apply_light()
 		return
 	_applying_light = true
-	if _light.enabled:
+	if _light.visible:
 		world.mark_object(LIGHT_ID, "closed")
 	else:
 		world.mark_object(LIGHT_ID, "on")
@@ -79,4 +79,4 @@ func _toggle_light() -> void:
 func _apply_light() -> void:
 	if _light == null or world == null:
 		return
-	_light.enabled = world.object_state(LIGHT_ID).has("on")
+	_light.visible = world.object_state(LIGHT_ID).has("on")

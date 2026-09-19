@@ -132,6 +132,8 @@ func _check_save_round_trip() -> void:
 	if save_state == null or ws == null or ps == null:
 		_add("9/10 save round trip + persistence", false, "managers missing")
 		return
+	for _i in 30:
+		await get_tree().physics_frame
 	var before_world: Dictionary = ws.call("snapshot").duplicate(true)
 	var before_body: Dictionary = ps.snapshot()["body"].duplicate(true)
 	var before_pos: Vector3 = ps.position
@@ -222,10 +224,10 @@ func _check_d032_kit() -> void:
 	var ammo: Dictionary = equipment.get(FieldItem.SLOT_AMMO, {})
 	var photo: Dictionary = equipment.get(FieldItem.SLOT_PERSONAL, {})
 	var knife: Dictionary = equipment.get(FieldItem.SLOT_TOOL, {})
-	var weapon_ok := weapon.get("id", "") == "sidearm" and weapon.get("hooks", []) == ["INSPECT"]
-	var ammo_ok := ammo.get("id", "") == "magazines"
-	var photo_ok := photo.get("id", "") == "photograph" and photo.get("hooks", []) == ["INSPECT"]
-	var knife_ok := knife.get("id", "") == "boot_knife"
+	var weapon_ok: bool = weapon.get("id", "") == "sidearm" and weapon.get("hooks", []) == ["INSPECT"]
+	var ammo_ok: bool = ammo.get("id", "") == "magazines"
+	var photo_ok: bool = photo.get("id", "") == "photograph" and photo.get("hooks", []) == ["INSPECT"]
+	var knife_ok: bool = knife.get("id", "") == "boot_knife"
 	var equipped_ok := ps.equipped_slot == FieldItem.SLOT_TOOL
 	if weapon_ok and ammo_ok and photo_ok and knife_ok and equipped_ok:
 		_add("12 D032 starting kit", true, "sidearm(INSPECT)+magazines+photograph(INSPECT)+boot_knife equipped")
@@ -260,7 +262,7 @@ func _check_d032_narrative() -> void:
 func _check_d032_presence() -> void:
 	var found := false
 	for p in get_tree().get_nodes_in_group("human_presence"):
-		if str(p.get("presence_id", "")) == "presence_f1":
+		if str(p.get("presence_id")) == "presence_f1":
 			found = true
 			break
 	if found:
