@@ -76,6 +76,15 @@ func mark_object(id: String, verb: String) -> void:
 func object_state(id: String) -> Dictionary:
 	return objects.get(id, {})
 
+func set_object_flag(id: String, flag: String, value: bool) -> void:
+	if not objects.has(id):
+		objects[id] = {}
+	if value:
+		objects[id][flag] = true
+	else:
+		objects[id].erase(flag)
+	object_changed.emit(id)
+
 func mark_observation(id: String, kind: String) -> void:
 	observations[id] = kind
 

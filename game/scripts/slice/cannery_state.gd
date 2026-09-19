@@ -3,14 +3,14 @@ extends Node
 
 const DOOR_ID := "f1_gyle_cannery_door"
 const LIGHT_ID := "f1_gyle_cannery_light"
+const SWITCH_ID := "f1_gyle_cannery_light_switch"
+const DOOR_FIRST_OPEN_SEEN := "f1_gyle_cannery_door_first_open"
 
 var world: WorldStateManager
 var save: SaveStateManager
 var root: Node3D
 var _door: StaticBody3D
 var _light: OmniLight3D
-var _applying_light := false
-var _door_open_ever := false
 
 func setup(w: WorldStateManager, s: SaveStateManager, cannery_root: Node3D) -> void:
 	world = w
@@ -27,19 +27,22 @@ func setup(w: WorldStateManager, s: SaveStateManager, cannery_root: Node3D) -> v
 	apply_all()
 
 func apply_all() -> void:
-	_apply_door()
+	_project_door()
 	_apply_light()
 
 func _on_object_changed(id: String) -> void:
 	if id == DOOR_ID:
-		_apply_door()
-	elif id == LIGHT_ID:
+		_project_door()
+		_register_door_first_open()
+	elif id == SWITCH_ID:
 		_toggle_light()
+	elif id == LIGHT_ID:
+		_apply_light()
 
 func _on_load_completed(_slot: int) -> void:
 	apply_all()
 
-func _apply_door() -> void:
+func _project_door() -> void:
 	if _door == null or world == null:
 		return
 	var open := world.object_state(DOOR_ID).has("open")
@@ -48,13 +51,13 @@ func _apply_door() -> void:
 	var mesh: Node = _door.get_node_or_null("MeshInstance3D")
 	if mesh:
 		mesh.visible = not open
-	if open and not _door_open_ever:
-		_door_open_ever = true
-		_on_door_first_open()
 
-func _on_door_first_open() -> void:
-	if world == null:
+func _register_door_first_open() -> void:
+	if world == null or not world.object_state(DOOR_ID).has("open"):
 		return
+	if world.has_seen(DOOR_FIRST_OPEN_SEEN):
+		return
+	world.mark_seen(DOOR_FIRST_OPEN_SEEN)
 	var pos := Vector3.ZERO
 	if _door:
 		pos = _door.global_position
@@ -66,17 +69,10 @@ func _on_door_first_open() -> void:
 func _toggle_light() -> void:
 	if _light == null or world == null:
 		return
-	if _applying_light:
-		_apply_light()
-		return
-	_applying_light = true
-	if _light.visible:
-		world.mark_object(LIGHT_ID, "closed")
-	else:
-		world.mark_object(LIGHT_ID, "on")
-	_applying_light = false
+	var is_on := bool(world.object_state(LIGHT_ID).get("on", false))
+	world.set_object_flag(LIGHT_ID, "on", not is_on)
 
 func _apply_light() -> void:
 	if _light == null or world == null:
 		return
-	_light.visible = world.object_state(LIGHT_ID).has("on")
+	_light.visible = bool(world.object_state(LIGHT_ID).get("on", false))

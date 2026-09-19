@@ -111,9 +111,13 @@ Expect a continuous floor (no gap/pit at the seam); IntroSign, ApproachCrate, Ap
 
 ## Gate 8 — Bay A walkthrough
 
-Walk the bay; interact with inspectable props (Machinery01 `f1_cannery_machinery_01`, Vat01,
-CollectCrateF1 `f1_cannery_crate_01`, Conveyor01, Vat02, CrateStack02). Expect no collision issues,
-no stuck spots, no camera clipping.
+Walk Bay A (the entry room, west of the DeepGate). Interact with the inspectable prop in Bay A:
+Machinery01 (`f1_cannery_machinery_01`). Expect no collision issues, no stuck spots, no camera
+clipping.
+
+Bay B props (Vat01, CollectCrateF1 `f1_cannery_crate_01`, Conveyor01, Vat02, CrateStack02) are
+placed east of the INSPECT-only DeepGate (`f1_gyle_cannery_gate`, local x≈0.1) and are intentionally
+sealed in S-2; they are not part of this gate and are not to be relocated to satisfy it.
 
 ## Gate 9 — InteriorLight / LightSwitch (canonical path)
 
