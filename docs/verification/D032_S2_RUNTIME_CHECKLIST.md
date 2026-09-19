@@ -3,7 +3,8 @@
 **Authority:** D032 Runtime Acceptance Gate (repository-owned verification authority).
 **Branch:** `work/d031-production-spine` (DO NOT merge to main).
 **Initial instrumentation baseline:** `396dabd` (S-2 runtime gate instrumentation + bounded pre-runtime repairs).
-**Status:** STATIC ACCEPTED / RUNTIME UNVERIFIED. Do not advance playable gameplay until this gate is green.
+**Status:** STATIC ACCEPTED / RUNTIME ACCEPTED — native device acceptance completed 2026-09-19 on
+candidate `fda947924edf3e7e1c0027f1840b2b7677ca0acd` (see Native Device Acceptance Record below).
 
 This document is the canonical, repository-owned runtime acceptance procedure for D032 Slice 1.
 It supersedes any machine-local copy or out-of-repository notes. Running the device gate means
@@ -217,3 +218,54 @@ Return the D032 S-2 report with the sections:
 - **H Tests:** static verification (37 OK / 0 FAIL), methodology (PASS), `git diff --check` (clean).
 - **I Final classification:** exactly one of `RUNTIME ACCEPTED` **or** `RUNTIME REJECTED — <reason>`
   (never "mostly passed").
+
+---
+
+## Native Device Acceptance Record
+
+**Date:** 2026-09-19
+**Candidate:** `fda947924edf3e7e1c0027f1840b2b7677ca0acd` (`work/d031-production-spine`, local == origin)
+**Device:** Samsung tablet SM-X528U / Android SDK 36
+**Runtime:** Godot 4.7.2.stable.official.ed1daf0bf — native Android editor, GL Compatibility project
+
+Operator-reported results (explicit operator observations on the native device):
+
+- Native Godot Android / GL Compatibility boot: PASS
+- Project launched successfully: PASS; no migration issue observed
+- Parser/runtime errors: NONE OBSERVED
+- Dual-thumb move + look: PASS
+- Continuous movement while turning: PASS
+- Input cancellation/latching: NONE OBSERVED
+- Camera responsiveness: PASS
+- Camera smoothing: PASS
+- Camera jitter: NONE OBSERVED
+- Camera overshoot: NONE OBSERVED
+- Camera latency: ACCEPTABLE
+- Fine camera/look adjustments: PASS
+- Strand movement: PASS
+- Strand → Cannery traversal: PASS
+- Floor/seam traversal: PASS
+- Cannery reachability: PASS
+- EntryDoor interaction: PASS
+- Bay A traversal: PASS
+- Machinery01 INSPECT: PASS
+- InteriorLight ON/OFF/ON: PASS
+- DeepGate remains sealed and INSPECT-only: PASS
+- Geometry escape: NONE OBSERVED
+- Touch prompts/interactions: PASS
+- Overall native-device behavior: works as intended
+
+External keyboard/controller: **NOT TESTED — REQUIRED HARDWARE NOT PRESENT**. No external hardware was
+attached (device input list contained only internal touch/pen/touchpad/power-key devices). This is not a
+runtime defect and not a mandatory acceptance blocker: the Runtime Acceptance Rule does not require
+attached external hardware, Gate 2 row 6 requires keyboard/controller adapters present with the
+functional test marked manual, and Gate 3 tablet acceptance is via touch.
+
+Automated evidence on the same candidate: Gate 2 foundation self-check 15/15 PASS; headless
+production-path runtime Gates 3–11 PASS (including canonical light state and DeepGate containment);
+narrative once-gates PASS (no replay after reload); equipment/firearm-absence PASS; persistence
+Gates 14–16 PASS (no door first-open replay); static verification CLEAN 37/0; methodology
+VALIDATION PASSED; `git diff --check` clean.
+
+Known pre-existing, out-of-scope observation: a `ROUTE TRAVERSED` field entry is recorded on
+load-teleport (pre-existing D027/D031 behavior; not caused by D032 and not a D032 invariant violation).
