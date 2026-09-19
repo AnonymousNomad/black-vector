@@ -5,7 +5,8 @@
 **Accepted baseline:** `06601c458b56973961f755ba39ab612131030aa4` (D032 S-2 RUNTIME ACCEPTED).
 **Scope:** ONE bounded restoration loop — seized machinery → dependency/failure → RESTORE → canonical
 facility power → heat/light benefit → one signature consequence → persistence.
-**Status:** IMPLEMENTED / RUNTIME UNVERIFIED.
+**Status:** IMPLEMENTED / RUNTIME ACCEPTED — native device acceptance completed 2026-09-19 on
+candidate `3cfed51903cec22b9a15d65f49113e4665b30b58` (see Native Device Acceptance Record below).
 
 This document is the canonical, repository-owned runtime acceptance procedure for D032 S-3. It supersedes
 machine-local copies. Running the device gate means executing **every** gate in this document, in order, and
@@ -159,3 +160,33 @@ owner marked HYPOTHESIS. Then STOP — do not begin speculative repair without o
 - `D032 S-3 — DEVICE ACCEPTANCE PENDING` when automated gates pass but native device acceptance is
   outstanding.
 - `D032 S-3 — RUNTIME REJECTED — <specific defect>` when a real defect remains.
+
+---
+
+## Native Device Acceptance Record
+
+**Date:** 2026-09-19
+**Candidate:** `3cfed51903cec22b9a15d65f49113e4665b30b58` (`work/d032-s3-first-restoration`, local == origin)
+**Device:** Samsung tablet SM-X528U / Android SDK 36
+**Runtime:** Godot 4.7.2.stable.official.ed1daf0bf — native Android editor, GL Compatibility project
+
+Operator-reported results (explicit operator observations on the native device, all PASS):
+
+- Native Godot / GL Compatibility boot: PASS; no migration prompt
+- Parser/runtime errors: NONE
+- Touch movement + look: PASS
+- Strand → Cannery traversal: PASS
+- Machinery before fuel: INSPECT works PASS; needs_fuel feedback appears PASS; RESTORE unavailable before fuel PASS
+- Fuel: ApproachCrate COLLECT works PASS; fuel becomes available for restoration PASS
+- Restoration: RESTORE appears after fuel PASS; activates correctly PASS; Cannery becomes powered PASS; InteriorLight powers on PASS; heat/shelter feedback works PASS; machinery returns to INSPECT afterward PASS
+- Light regression: switch OFF after restore PASS; switch ON again PASS
+- DeepGate: remains sealed PASS; remains INSPECT-only PASS; no geometry escape observed PASS
+- Persistence (save → fully close runtime → relaunch → load): Cannery still powered PASS; light state correct PASS; heat/shelter still active PASS; fuel not available again PASS; RESTORE does not replay PASS; DeepGate still sealed PASS
+- Overall native behavior: WORKS AS INTENDED
+- External keyboard/controller: **NOT TESTED — REQUIRED HARDWARE NOT PRESENT**. Not a runtime defect and
+  not a mandatory acceptance blocker (the Runtime Acceptance Rule contains no external-hardware clause).
+
+Automated evidence on the same candidate: foundation self-check Gate 2 20/20 PASS (15 S-2 rows + S-3 rows
+16–20); headless production-path runtime Phase A 15/15 PASS and persistence Phase B 2/2 PASS; static
+verification CLEAN (38 ok / 0 fail); methodology VALIDATION PASSED; `git diff --check` clean. The
+pre-existing ROUTE TRAVERSED load-teleport artifact remains out of scope (no new S-3 behavior).
