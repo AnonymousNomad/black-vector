@@ -1,6 +1,6 @@
 extends StaticBody3D
 
-@export_enum("mantle", "vault", "climb", "conceal", "ledge", "inspect", "open", "collect", "rest", "recover", "survey", "record") var affordance: String = ""
+@export_enum("mantle", "vault", "climb", "conceal", "ledge", "inspect", "open", "collect", "rest", "recover", "survey", "record", "restore") var affordance: String = ""
 @export var object_id := ""
 @export var trace_kind := ""
 @export var shelter_radius := 0.0

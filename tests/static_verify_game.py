@@ -482,6 +482,36 @@ def verify_d032_slice() -> list:
     return issues
 
 
+def verify_d032_s3_slice() -> list:
+    issues = []
+    cannery_state = _read_rel(os.path.join(ROOT, "game/scripts/slice/cannery_state.gd"))
+    for token in ("f1_gyle_cannery_power", "f1_cannery_fuel", "f1_cannery_signature",
+                  "f1_gyle_cannery_first_restore", "set_object_flag"):
+        if token not in cannery_state:
+            issues.append(f"D032 S-3: cannery_state.gd missing canonical token: {token}")
+
+    cannery = _read_rel(os.path.join(ROOT, D032_CANNERY_SCENE))
+    if 'object_id = "f1_cannery_fuel"' not in cannery:
+        issues.append("D032 S-3: fuel dependency object (f1_cannery_fuel) missing from cannery scene")
+    if "f1_gyle_cannery_gate" not in cannery or "DeepBayLight" not in cannery:
+        issues.append("D032 S-3: sealed DeepGate/DeepBayLight boundary missing from cannery scene")
+    if 'object_id = "f1_gyle_cannery_power"' in cannery:
+        issues.append("D032 S-3: power must be canonical WorldState state, not a scene object id")
+
+    graybox = _read_rel(os.path.join(ROOT, "game/scripts/world/graybox_block.gd"))
+    if '"restore"' not in graybox:
+        issues.append("D032 S-3: graybox affordance vocabulary missing 'restore'")
+
+    probe = _read_rel(os.path.join(ROOT, "game/scripts/player/interaction_probe.gd"))
+    if '"RESTORE"' not in probe or "context_restore" not in probe:
+        issues.append("D032 S-3: interaction probe missing RESTORE vocabulary/mapping")
+
+    interaction = _read_rel(os.path.join(ROOT, "game/scripts/slice/interaction_manager.gd"))
+    if "RESTORED" not in interaction:
+        issues.append("D032 S-3: interaction manager missing RESTORED observability kind")
+    return issues
+
+
 def main() -> int:
     ok = []
     issues = []
@@ -581,6 +611,12 @@ def main() -> int:
         issues.extend(d032_issues[:8])
     else:
         ok.append("D032 slice-1 invariants hold (kit/narrative/cannery scene, exclusions clean)")
+
+    d032s3_issues = verify_d032_s3_slice()
+    if d032s3_issues:
+        issues.extend(d032s3_issues[:8])
+    else:
+        ok.append("D032 S-3 restoration invariants hold (canonical power/fuel/signature, RESTORE, sealed gate)")
 
     census = verify_slice_node_census()
     ok.append(f"slice scene static node census: {census} nodes (target < 1200)")

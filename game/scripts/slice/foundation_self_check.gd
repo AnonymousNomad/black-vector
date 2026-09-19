@@ -51,6 +51,11 @@ func _run_checks() -> void:
 	_check_d032_narrative()
 	_check_d032_presence()
 	_check_d032_firearm_absent()
+	_check_d032_power()
+	_check_d032_dependency()
+	_check_d032_heat_off()
+	_check_d032_deepgate()
+	_check_d032_restore_marker()
 
 func _check_boot() -> void:
 	_add("1 project boot", true, "Godot %s" % Engine.get_version_info()["string"])
@@ -319,6 +324,76 @@ func _check_d032_firearm_absent() -> void:
 		_add("15 D032 firearm absent", true, "no fire/shoot function definitions in res://scripts")
 	else:
 		_add("15 D032 firearm absent", false, hits[0])
+
+func _d032_cannery_root() -> Node:
+	var gw := get_tree().get_first_node_in_group("game_world")
+	return gw.get_node_or_null("GyleCannery") if gw else null
+
+func _check_d032_power() -> void:
+	var gw := get_tree().get_first_node_in_group("game_world")
+	var cannery: CanneryState = gw.get_node_or_null("CanneryState") as CanneryState if gw else null
+	var ws: WorldStateManager = gw.get_node_or_null("WorldState") as WorldStateManager if gw else null
+	if cannery == null or ws == null:
+		_add("16 D032 S-3 power contract", false, "CanneryState/WorldState missing")
+		return
+	var unpowered := not cannery.is_powered() and not ws.object_state("f1_gyle_cannery_power").has("powered")
+	_add("16 D032 S-3 power contract", unpowered,
+		"canonical f1_gyle_cannery_power initial=%s owner=CanneryState" % ("UNPOWERED" if unpowered else "POWERED"))
+
+func _check_d032_dependency() -> void:
+	var gw := get_tree().get_first_node_in_group("game_world")
+	var ws: WorldStateManager = gw.get_node_or_null("WorldState") as WorldStateManager if gw else null
+	var cannery := _d032_cannery_root()
+	var mach: Node = cannery.get_node_or_null("Machinery01") if cannery else null
+	if ws == null or mach == null:
+		_add("17 D032 S-3 dependency", false, "WorldState/Machinery01 missing")
+		return
+	var fuel_collected := ws.object_state("f1_cannery_fuel").has("collect")
+	var ok: bool = str(mach.get("object_id")) == "f1_cannery_machinery_01" \
+		and not fuel_collected and mach.is_in_group("context_inspect") and not mach.is_in_group("context_restore")
+	_add("17 D032 S-3 dependency", ok,
+		"machinery object_id=%s fuel_collected=%s inspect=%s restore=%s" % [
+			str(mach.get("object_id")), fuel_collected, mach.is_in_group("context_inspect"), mach.is_in_group("context_restore")])
+
+func _check_d032_heat_off() -> void:
+	var cannery := _d032_cannery_root()
+	var mach: Node = cannery.get_node_or_null("Machinery01") if cannery else null
+	var light: OmniLight3D = cannery.get_node_or_null("InteriorLight") as OmniLight3D if cannery else null
+	if mach == null or light == null:
+		_add("18 D032 S-3 unpowered projection", false, "Machinery01/InteriorLight missing")
+		return
+	var ok: bool = not mach.is_in_group("shelter_zone") and float(mach.get("shelter_radius")) == 0.0 and not light.visible
+	_add("18 D032 S-3 unpowered projection", ok,
+		"heat_zone=%s shelter_radius=%.1f light_visible=%s" % [
+			mach.is_in_group("shelter_zone"), float(mach.get("shelter_radius")), light.visible])
+
+func _check_d032_deepgate() -> void:
+	var gw := get_tree().get_first_node_in_group("game_world")
+	var ws: WorldStateManager = gw.get_node_or_null("WorldState") as WorldStateManager if gw else null
+	var cannery := _d032_cannery_root()
+	var gate: Node = cannery.get_node_or_null("DeepGate") if cannery else null
+	var deep: OmniLight3D = cannery.get_node_or_null("DeepBayLight") as OmniLight3D if cannery else null
+	if ws == null or gate == null or deep == null:
+		_add("19 D032 S-3 deep gate sealed", false, "WorldState/DeepGate/DeepBayLight missing")
+		return
+	var ok: bool = gate.is_in_group("context_inspect") and not gate.is_in_group("context_open") \
+		and not ws.object_state("f1_gyle_cannery_gate").has("open") \
+		and int(gate.get("collision_layer")) == 1 and not deep.visible
+	_add("19 D032 S-3 deep gate sealed", ok,
+		"inspect=%s open=%s layer=%d deep_light=%s" % [
+			gate.is_in_group("context_inspect"), gate.is_in_group("context_open"), int(gate.get("collision_layer")), deep.visible])
+
+func _check_d032_restore_marker() -> void:
+	var gw := get_tree().get_first_node_in_group("game_world")
+	var ws: WorldStateManager = gw.get_node_or_null("WorldState") as WorldStateManager if gw else null
+	if ws == null:
+		_add("20 D032 S-3 restore marker", false, "no WorldState")
+		return
+	var ok: bool = not ws.has_seen("f1_gyle_cannery_first_restore") \
+		and not ws.object_state("f1_cannery_signature").has("heat_light")
+	_add("20 D032 S-3 restore marker", ok,
+		"first_restore_seen=%s signature=%s" % [
+			ws.has_seen("f1_gyle_cannery_first_restore"), ws.object_state("f1_cannery_signature").has("heat_light")])
 
 func _channel_values(snap: Dictionary) -> Dictionary:
 	var out := {}

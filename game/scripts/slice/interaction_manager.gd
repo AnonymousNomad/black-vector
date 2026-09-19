@@ -59,6 +59,8 @@ func on_object_activated(action: String, collider: Node) -> void:
 			entry_kind = "NOTICED"
 		elif action == "RECORD":
 			entry_kind = "DOCUMENTED"
+		elif action == "RESTORE":
+			entry_kind = "RESTORED"
 		var pos := Vector3.ZERO
 		var node3d := collider as Node3D
 		if node3d:

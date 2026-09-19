@@ -3,7 +3,7 @@ extends Node3D
 
 signal activated(action: String, collider: Node)
 
-const ACTIVATABLE := ["INSPECT", "OPEN", "COLLECT", "REST", "RECOVER", "SURVEY", "RECORD"]
+const ACTIVATABLE := ["INSPECT", "OPEN", "COLLECT", "REST", "RECOVER", "SURVEY", "RECORD", "RESTORE"]
 
 @export var probe_length := 1.25
 @export var low_probe_height := 0.45
@@ -77,6 +77,8 @@ func context_action(stowed: bool) -> String:
 	var collider: Node = target.get("collider") as Node
 	if collider.is_in_group("context_climb"):
 		return "CLIMB"
+	if collider.is_in_group("context_restore"):
+		return "RESTORE"
 	if collider.is_in_group("context_inspect"):
 		return "INSPECT"
 	if collider.is_in_group("context_open"):

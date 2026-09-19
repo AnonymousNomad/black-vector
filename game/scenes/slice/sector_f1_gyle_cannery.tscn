@@ -131,6 +131,8 @@ block_color = Color(0.36, 0.34, 0.3, 1)
 
 [node name="ApproachCrate" parent="." instance=ExtResource("1")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10.2, 0.4, -3)
+affordance = "collect"
+object_id = "f1_cannery_fuel"
 block_size = Vector3(1, 0.8, 1)
 block_color = Color(0.42, 0.34, 0.24, 1)
 
