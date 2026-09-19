@@ -132,8 +132,19 @@ func _check_save_round_trip() -> void:
 	if save_state == null or ws == null or ps == null:
 		_add("9/10 save round trip + persistence", false, "managers missing")
 		return
-	for _i in 30:
+	var ready_body := get_tree().get_first_node_in_group("player") as CharacterBody3D
+	if ready_body == null:
+		_add("9/10 save round trip + persistence", false, "no player node for readiness")
+		return
+	const READY_TIMEOUT_FRAMES := 240
+	var ready_frames := 0
+	while not ready_body.is_on_floor() and ready_frames < READY_TIMEOUT_FRAMES:
 		await get_tree().physics_frame
+		ready_frames += 1
+	if not ready_body.is_on_floor():
+		_add("9/10 save round trip + persistence", false,
+			"readiness timeout: player not on floor after %d physics frames" % READY_TIMEOUT_FRAMES)
+		return
 	var before_world: Dictionary = ws.call("snapshot").duplicate(true)
 	var before_body: Dictionary = ps.snapshot()["body"].duplicate(true)
 	var before_pos: Vector3 = ps.position
@@ -157,7 +168,7 @@ func _check_save_round_trip() -> void:
 	var player := get_tree().get_first_node_in_group("player") as Node3D
 	var relocated := player != null and player.global_position.distance_to(before_pos) < 0.5
 	if values_match and body_match and seed_match and pos_restored and relocated:
-		_add("9/10 save round trip + persistence", true, "write->verify->load; world+body+seed+player restored")
+		_add("9/10 save round trip + persistence", true, "readiness is_on_floor in %d physics frames; write->verify->load; world+body+seed+player restored" % ready_frames)
 	else:
 		_add("9/10 save round trip + persistence", false,
 			"values=%s body=%s[%s] seed=%s pos=%s relocated=%s" % [values_match, body_match, _body_diff(before_body, after_body), seed_match, pos_restored, relocated])
