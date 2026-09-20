@@ -1,0 +1,46 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/visual_wilderness_proof_1.gd" id="1_visual"]
+[ext_resource type="Script" path="res://scripts/world/wilderness_audio.gd" id="2_audio"]
+
+[node name="VisualWildernessProof1" type="Node3D"]
+script = ExtResource("1_visual")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-49, -28, 0)
+light_color = Color(1, 0.93, 0.82, 1)
+light_energy = 1.15
+shadow_enabled = true
+directional_shadow_max_distance = 90.0
+
+[node name="Region" type="Node3D" parent="."]
+
+[node name="Cell_0_0" type="Node3D" parent="Region"]
+
+[node name="Terrain" type="Node3D" parent="Region/Cell_0_0"]
+
+[node name="TerrainBase" type="StaticBody3D" parent="Region/Cell_0_0/Terrain"]
+collision_layer = 1
+collision_mask = 0
+
+[node name="TerrainMesh" type="MeshInstance3D" parent="Region/Cell_0_0/Terrain/TerrainBase"]
+
+[node name="TerrainCollision" type="CollisionShape3D" parent="Region/Cell_0_0/Terrain/TerrainBase"]
+
+[node name="Dressing" type="Node3D" parent="Region/Cell_0_0"]
+
+[node name="Trail" type="MeshInstance3D" parent="Region/Cell_0_0/Dressing"]
+
+[node name="Clearing" type="MeshInstance3D" parent="Region/Cell_0_0/Dressing"]
+
+[node name="Water" type="MeshInstance3D" parent="Region/Cell_0_0"]
+
+[node name="Vegetation" type="Node3D" parent="Region/Cell_0_0/Dressing"]
+
+[node name="Audio" type="Node3D" parent="Region/Cell_0_0"]
+script = ExtResource("2_audio")
+
+[node name="ActivationMetadata" type="Node" parent="Region/Cell_0_0"]
+groups = ["visual_cell_activation_metadata"]

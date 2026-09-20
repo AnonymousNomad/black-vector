@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/world/graybox_block.tscn" id="2"]
@@ -10,10 +10,11 @@ size = Vector2(20, 20)
 [sub_resource type="BoxShape3D" id="floor_shape"]
 size = Vector3(20, 0.1, 20)
 
-[node name="SectorS1" type="Node3D"]
+[sub_resource type="StandardMaterial3D" id="strand_material"]
+albedo_color = Color(0.19, 0.22, 0.21, 1)
+roughness = 0.98
 
-[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 10, 0)
+[node name="SectorS1" type="Node3D"]
 
 [node name="StrandFloor" type="StaticBody3D" parent="."]
 collision_layer = 1
@@ -21,6 +22,7 @@ collision_mask = 0
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="StrandFloor"]
 mesh = SubResource("floor_mesh")
+material_override = SubResource("strand_material")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="StrandFloor"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0)

@@ -400,6 +400,69 @@ def verify_slice_node_census() -> int:
     return count
 
 
+def verify_visual_wilderness() -> list:
+    issues = []
+    visual_scene_rel = "game/scenes/world/visual_wilderness_proof_1.tscn"
+    visual_script_rel = "game/scripts/world/visual_wilderness_proof_1.gd"
+    audio_script_rel = "game/scripts/world/wilderness_audio.gd"
+    proxy_scene_rel = "game/scenes/player/corley_proxy.tscn"
+    proxy_script_rel = "game/scripts/player/corley_proxy.gd"
+    ledger_rel = "docs/visual/VISUAL_WILDERNESS_PROOF_1_ASSET_LEDGER.md"
+    for rel in (visual_scene_rel, visual_script_rel, audio_script_rel,
+                proxy_scene_rel, proxy_script_rel, ledger_rel):
+        if not os.path.isfile(os.path.join(ROOT, rel)):
+            issues.append(f"visual wilderness file missing: {rel}")
+
+    main_scene = _read_rel(os.path.join(ROOT, "game/scenes/slice/slice_main.tscn"))
+    if "visual_wilderness_proof_1.tscn" not in main_scene or "VisualWildernessProof1" not in main_scene:
+        issues.append("visual wilderness scene is not retained in slice_main")
+
+    visual_scene = _read_rel(os.path.join(ROOT, visual_scene_rel))
+    for token in ("WorldEnvironment", "DirectionalLight3D", "Region", "Cell_0_0",
+                  "TerrainBase", "TerrainCollision", "Dressing", "Water",
+                  "Vegetation", "Audio", "ActivationMetadata"):
+        if token not in visual_scene:
+            issues.append(f"visual wilderness scene missing required owner: {token}")
+
+    visual_script = _read_rel(os.path.join(ROOT, visual_script_rel))
+    for token in ("planning_envelope", "planning_cell_size", "MultiMesh",
+                  "visibility_range_end", "ConcavePolygonShape3D", "_terrain_height",
+                  "_build_water", "_build_cannery_landmark"):
+        if token not in visual_script:
+            issues.append(f"visual wilderness script missing proof token: {token}")
+
+    player_scene = _read_rel(os.path.join(ROOT, "game/scenes/player/player.tscn"))
+    if "corley_proxy.tscn" not in player_scene or "CorleyProxy" not in player_scene:
+        issues.append("player scene missing CorleyProxy presentation child")
+    spring_arm = re.search(r'\[node name="SpringArm3D".*?(?=\n\[node|\Z)', player_scene, re.DOTALL)
+    if not spring_arm or "collision_mask = 1" not in spring_arm.group(0):
+        issues.append("SpringArm3D camera collision is not enabled on world layer 1")
+
+    proxy_script = _read_rel(os.path.join(ROOT, proxy_script_rel))
+    for token in ("HumanoidSkeleton", "idle", "walk", "jog", "sprint",
+                  "crouch", "crouch_walk", "RightHandAttachment", "PrimaryBackAttachment"):
+        if token not in proxy_script:
+            issues.append(f"Corley proxy missing presentation proof token: {token}")
+
+    audio_script = _read_rel(os.path.join(ROOT, audio_script_rel))
+    for token in ("WindAmbience", "ForestAmbience", "CreekAmbience",
+                  "SurfaceFootsteps", "SOIL", "GRASS", "ROCK", "GRAVEL", "WET"):
+        if token not in audio_script:
+            issues.append(f"wilderness audio missing proof token: {token}")
+
+    strand = _read_rel(os.path.join(ROOT, "game/scenes/slice/sector_s1_strand.tscn"))
+    cannery = _read_rel(os.path.join(ROOT, D032_CANNERY_SCENE))
+    if "StrandFloor" not in strand or "player.tscn" not in strand:
+        issues.append("accepted Strand node/player spawn was not retained")
+    if "GyleCannery" not in cannery or "EntryDoor" not in cannery:
+        issues.append("accepted Cannery node/EntryDoor was not retained")
+
+    ledger = _read_rel(os.path.join(ROOT, ledger_rel))
+    if "No ambiguous-license asset is present" not in ledger:
+        issues.append("visual asset ledger does not document the no-external-assets decision")
+    return issues
+
+
 def verify_self_check_harness() -> list:
     issues = []
     if not os.path.isfile(os.path.join(ROOT, "game/scripts/slice/foundation_self_check.gd")):
@@ -620,6 +683,12 @@ def main() -> int:
 
     census = verify_slice_node_census()
     ok.append(f"slice scene static node census: {census} nodes (target < 1200)")
+
+    visual_issues = verify_visual_wilderness()
+    if visual_issues:
+        issues.extend(visual_issues[:12])
+    else:
+        ok.append("Visual Wilderness Proof 1 foundation/ownership invariants hold")
 
     print("== STATIC VERIFICATION (game/) ==")
     for item in sorted(ok):

@@ -161,6 +161,12 @@ func _extra_lines() -> Array[String]:
 	var opponent := get_tree().get_first_node_in_group("training_opponent")
 	if opponent and opponent.has_method("debug_line"):
 		out.append(opponent.call("debug_line"))
+	var visual_region := get_tree().get_first_node_in_group("visual_wilderness_region")
+	if visual_region and visual_region.has_method("debug_line"):
+		out.append(visual_region.call("debug_line"))
+	var wilderness_audio := get_tree().get_first_node_in_group("wilderness_audio")
+	if wilderness_audio and wilderness_audio.has_method("debug_line"):
+		out.append(wilderness_audio.call("debug_line"))
 	return out
 
 func _metrics() -> String:
