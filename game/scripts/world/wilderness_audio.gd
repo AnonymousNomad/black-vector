@@ -17,6 +17,18 @@ func _ready() -> void:
 	add_to_group("wilderness_audio")
 	call_deferred("_initialize_audio")
 
+func _exit_tree() -> void:
+	shutdown_audio()
+
+func shutdown_audio() -> void:
+	for layer in _layers:
+		var player := layer.get("player") as AudioStreamPlayer3D
+		if not is_instance_valid(player):
+			continue
+		player.stop()
+		player.stream = null
+	_layers.clear()
+
 func _initialize_audio() -> void:
 	_add_layer("WindAmbience", Vector3(0.0, 7.0, 0.0), 0.07, 0.0)
 	_add_layer("ForestAmbience", Vector3(68.0, 2.0, 19.0), 0.035, -2.0)

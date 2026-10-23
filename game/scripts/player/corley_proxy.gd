@@ -1,174 +1,210 @@
 class_name CorleyProxy
 extends Node3D
 
-## Original procedural presentation proxy. The CharacterBody3D/controller remains
-## the movement authority; this node only follows AnimationState.
+## Loads the original, rigged opening-state Corley model. Player movement and
+## collision remain owned by CharacterBody3D; this node drives presentation.
 
-var _animation_state: Node
-var _parts: Dictionary = {}
-var _phase := 0.0
+const PRODUCTION_MODEL: PackedScene = preload("res://assets/characters/corley_opening.glb")
+# The imported HumanoidSkeleton keeps its Skeleton3D node name so GLTF animation paths remain valid.
+const REQUIRED_ANIMATIONS := [
+	"idle", "walk", "jog", "sprint", "air", "crouch", "crouch_walk",
+	"prone", "prone_crawl", "turn", "interaction", "hurt", "recoil", "combat_stance",
+]
+const ATTACHMENT_BONES := {
+	"RightHandAttachment": "hand.R",
+	"LeftHandAttachment": "hand.L",
+	"SidearmHipAttachment": "hips",
+	"PrimaryBackAttachment": "spine",
+	"FightingKnifeAttachment": "hips",
+	"BootKnifeAttachment": "foot.L",
+	"ChestVestAttachment": "chest",
+}
+const INJURY_BONES := {
+	"HEAD": "head",
+	"TORSO": "chest",
+	"LEFT_ARM": "forearm.L",
+	"RIGHT_ARM": "forearm.R",
+	"LEFT_LEG": "shin.L",
+	"RIGHT_LEG": "shin.R",
+}
+
+var _animation_state: AnimationState
+var _presentation_contract: CharacterPresentationContract
+var _model: Node3D
 var _skeleton: Skeleton3D
+var _animation_player: AnimationPlayer
+var _playing_animation := ""
+var _injury_nodes: Dictionary = {}
 
 func _ready() -> void:
 	add_to_group("corley_proxy")
-	add_to_group("engineering_proxy")
-	_animation_state = get_parent().get_node_or_null("AnimationState")
-	_build_skeleton()
-	_build_future_attachment_points()
-	_build_body()
+	_animation_state = get_parent().get_node_or_null("AnimationState") as AnimationState
+	_presentation_contract = get_parent().get_node_or_null("CharacterPresentation") as CharacterPresentationContract
+	_load_production_model()
+	if representation_status() == "PRODUCTION_CORLEY":
+		add_to_group("production_corley")
+	if _presentation_contract:
+		_presentation_contract.clothing_state_changed.connect(_on_clothing_state_changed)
+		_presentation_contract.injury_presentation_changed.connect(_on_injury_presentation_changed)
+	if _animation_state:
+		_animation_state.state_changed.connect(_on_animation_state_changed)
+		_animation_state.action_changed.connect(_on_action_changed)
+		_play_active_animation()
+	_apply_opening_clothing_state()
 
-func representation_status() -> String:
-	return "ENGINEERING_PROXY"
+func _load_production_model() -> void:
+	if PRODUCTION_MODEL == null:
+		return
+	_model = PRODUCTION_MODEL.instantiate() as Node3D
+	if _model == null:
+		return
+	_model.name = "ProductionCorleyModel"
+	# Blender's authored front is +Y (exported as +Z); gameplay forward is -Z.
+	# Rotate the imported root so the gameplay camera sees her back by default.
+	_model.rotation.y = PI
+	add_child(_model)
+	_skeleton = _model.find_child("Skeleton3D", true, false) as Skeleton3D
+	_animation_player = _model.find_child("AnimationPlayer", true, false) as AnimationPlayer
+	if _skeleton:
+		_build_equipment_attachments()
+		_build_injury_presentation()
+	if _animation_player:
+		for animation_name in ["idle", "walk", "jog", "sprint", "crouch", "crouch_walk", "prone", "prone_crawl", "combat_stance"]:
+			var animation := _animation_player.get_animation(animation_name)
+			if animation:
+				animation.loop_mode = Animation.LOOP_LINEAR
 
-func _process(delta: float) -> void:
-	_phase += delta
-	_apply_presentation()
+func _build_equipment_attachments() -> void:
+	for attachment_name in ["RightHandAttachment", "LeftHandAttachment", "SidearmHipAttachment", "PrimaryBackAttachment", "FightingKnifeAttachment", "BootKnifeAttachment", "ChestVestAttachment"]:
+		var attachment := BoneAttachment3D.new()
+		attachment.name = attachment_name
+		attachment.bone_name = str(ATTACHMENT_BONES[attachment_name])
+		_skeleton.add_child(attachment)
+		attachment.add_to_group("future_attachment_point")
+		match attachment_name:
+			"SidearmHipAttachment":
+				attachment.position = Vector3(0.21, -0.02, 0.08)
+			"PrimaryBackAttachment":
+				attachment.position = Vector3(0.0, 0.04, 0.16)
+			"FightingKnifeAttachment":
+				attachment.position = Vector3(-0.17, -0.02, 0.04)
+			"BootKnifeAttachment":
+				attachment.position = Vector3(0.06, 0.02, 0.02)
+			"ChestVestAttachment":
+				attachment.position = Vector3(0.0, 0.02, -0.12)
 
-func _build_skeleton() -> void:
-	_skeleton = Skeleton3D.new()
-	_skeleton.name = "HumanoidSkeleton"
-	add_child(_skeleton)
-	var bones := ["root", "hips", "spine", "chest", "neck", "head", "upper_arm_l", "forearm_l", "upper_arm_r", "forearm_r", "thigh_l", "shin_l", "foot_l", "thigh_r", "shin_r", "foot_r"]
-	for bone_name in bones:
-		_skeleton.add_bone(bone_name)
-	_skeleton.set_bone_parent(_skeleton.find_bone("hips"), _skeleton.find_bone("root"))
-	_skeleton.set_bone_parent(_skeleton.find_bone("spine"), _skeleton.find_bone("hips"))
-	_skeleton.set_bone_parent(_skeleton.find_bone("chest"), _skeleton.find_bone("spine"))
-	_skeleton.set_bone_parent(_skeleton.find_bone("neck"), _skeleton.find_bone("chest"))
-	_skeleton.set_bone_parent(_skeleton.find_bone("head"), _skeleton.find_bone("neck"))
-	_skeleton.set_bone_parent(_skeleton.find_bone("upper_arm_l"), _skeleton.find_bone("chest"))
-	_skeleton.set_bone_parent(_skeleton.find_bone("forearm_l"), _skeleton.find_bone("upper_arm_l"))
-	_skeleton.set_bone_parent(_skeleton.find_bone("upper_arm_r"), _skeleton.find_bone("chest"))
-	_skeleton.set_bone_parent(_skeleton.find_bone("forearm_r"), _skeleton.find_bone("upper_arm_r"))
-	_skeleton.set_bone_parent(_skeleton.find_bone("thigh_l"), _skeleton.find_bone("hips"))
-	_skeleton.set_bone_parent(_skeleton.find_bone("shin_l"), _skeleton.find_bone("thigh_l"))
-	_skeleton.set_bone_parent(_skeleton.find_bone("foot_l"), _skeleton.find_bone("shin_l"))
-	_skeleton.set_bone_parent(_skeleton.find_bone("thigh_r"), _skeleton.find_bone("hips"))
-	_skeleton.set_bone_parent(_skeleton.find_bone("shin_r"), _skeleton.find_bone("thigh_r"))
-	_skeleton.set_bone_parent(_skeleton.find_bone("foot_r"), _skeleton.find_bone("shin_r"))
+func _build_injury_presentation() -> void:
+	for region in INJURY_BONES:
+		var attachment := BoneAttachment3D.new()
+		attachment.name = "InjuryAttachment_%s" % region
+		attachment.bone_name = str(INJURY_BONES[region])
+		_skeleton.add_child(attachment)
+		var abrasion := MeshInstance3D.new()
+		abrasion.name = "InjuryAbrasion"
+		var abrasion_mesh := SphereMesh.new()
+		abrasion_mesh.radius = 0.04
+		abrasion_mesh.height = 0.025
+		abrasion_mesh.radial_segments = 16
+		abrasion_mesh.rings = 8
+		abrasion.mesh = abrasion_mesh
+		abrasion.material_override = _injury_material(Color("#65392e"))
+		abrasion.position = Vector3(0.0, 0.0, -0.045)
+		abrasion.visible = false
+		attachment.add_child(abrasion)
+		var bandage := MeshInstance3D.new()
+		bandage.name = "InjuryWrap"
+		var bandage_mesh := SphereMesh.new()
+		bandage_mesh.radius = 0.047
+		bandage_mesh.height = 0.028
+		bandage_mesh.radial_segments = 16
+		bandage_mesh.rings = 8
+		bandage.mesh = bandage_mesh
+		bandage.material_override = _injury_material(Color("#b8ad8d"))
+		bandage.position = Vector3(0.0, 0.0, -0.045)
+		bandage.scale = Vector3(1.0, 0.32, 1.0)
+		bandage.visible = false
+		attachment.add_child(bandage)
+		_injury_nodes[region] = {"abrasion": abrasion, "wrap": bandage}
 
-func _build_future_attachment_points() -> void:
-	for point_name in ["RightHandAttachment", "LeftHandAttachment", "SidearmHipAttachment", "PrimaryBackAttachment", "FightingKnifeAttachment", "BootKnifeAttachment", "ChestVestAttachment"]:
-		var marker := Node3D.new()
-		marker.name = point_name
-		marker.add_to_group("future_attachment_point")
-		add_child(marker)
-	marker_position("RightHandAttachment", Vector3(0.38, 1.18, -0.05))
-	marker_position("LeftHandAttachment", Vector3(-0.38, 1.18, -0.05))
-	marker_position("SidearmHipAttachment", Vector3(0.33, 0.78, 0.1))
-	marker_position("PrimaryBackAttachment", Vector3(0.0, 1.25, 0.2))
-	marker_position("FightingKnifeAttachment", Vector3(-0.28, 0.86, 0.12))
-	marker_position("BootKnifeAttachment", Vector3(0.16, 0.18, 0.08))
-	marker_position("ChestVestAttachment", Vector3(0.0, 1.25, -0.2))
-
-func marker_position(point_name: String, value: Vector3) -> void:
-	var marker := get_node_or_null(point_name) as Node3D
-	if marker:
-		marker.position = value
-
-func _material(color: Color, roughness := 0.78) -> StandardMaterial3D:
+func _injury_material(color: Color) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
 	material.albedo_color = color
-	material.roughness = roughness
+	material.roughness = 0.88
 	return material
 
-func _box_part(part_name: String, size: Vector3, position: Vector3, material: Material) -> void:
-	var mesh := BoxMesh.new()
-	mesh.size = size
-	var instance := MeshInstance3D.new()
-	instance.name = part_name
-	instance.mesh = mesh
-	instance.material_override = material
-	instance.position = position
-	add_child(instance)
-	_parts[part_name] = instance
+func representation_status() -> String:
+	if _model == null or _skeleton == null or _animation_player == null:
+		return "MISSING_PRODUCTION_ASSET"
+	for animation_name in REQUIRED_ANIMATIONS:
+		if not _animation_player.has_animation(animation_name):
+			return "INCOMPLETE_PRODUCTION_CORLEY"
+	return "PRODUCTION_CORLEY"
 
-func _sphere_part(part_name: String, radius: float, height: float, position: Vector3, material: Material) -> void:
-	var mesh := SphereMesh.new()
-	mesh.radius = radius
-	mesh.height = height
-	mesh.radial_segments = 12
-	mesh.rings = 6
-	var instance := MeshInstance3D.new()
-	instance.name = part_name
-	instance.mesh = mesh
-	instance.material_override = material
-	instance.position = position
-	add_child(instance)
-	_parts[part_name] = instance
+func production_animation_names() -> PackedStringArray:
+	return PackedStringArray(_animation_player.get_animation_list()) if _animation_player else PackedStringArray()
 
-func _build_body() -> void:
-	var suit := _material(Color("#303a3b"), 0.88)
-	var vest := _material(Color("#4e5147"), 0.92)
-	var skin := _material(Color("#b68168"), 0.76)
-	var hair := _material(Color("#22282a"), 0.94)
-	var boot := _material(Color("#202528"), 0.9)
-	var accent := _material(Color("#8b775b"), 0.82)
-	_box_part("Torso", Vector3(0.56, 0.68, 0.32), Vector3(0, 1.14, 0), suit)
-	_box_part("Vest", Vector3(0.61, 0.58, 0.36), Vector3(0, 1.16, -0.02), vest)
-	_box_part("Hips", Vector3(0.48, 0.24, 0.28), Vector3(0, 0.76, 0), suit)
-	_sphere_part("Head", 0.17, 0.34, Vector3(0, 1.72, 0), skin)
-	_sphere_part("Hair", 0.18, 0.28, Vector3(0, 1.83, 0.035), hair)
-	_box_part("Neck", Vector3(0.16, 0.16, 0.16), Vector3(0, 1.53, 0), skin)
-	_box_part("ArmL", Vector3(0.15, 0.58, 0.15), Vector3(-0.39, 1.16, 0), suit)
-	_box_part("ArmR", Vector3(0.15, 0.58, 0.15), Vector3(0.39, 1.16, 0), suit)
-	_box_part("HandL", Vector3(0.13, 0.18, 0.13), Vector3(-0.39, 0.81, -0.01), skin)
-	_box_part("HandR", Vector3(0.13, 0.18, 0.13), Vector3(0.39, 0.81, -0.01), skin)
-	_box_part("LegL", Vector3(0.18, 0.64, 0.18), Vector3(-0.16, 0.43, 0), suit)
-	_box_part("LegR", Vector3(0.18, 0.64, 0.18), Vector3(0.16, 0.43, 0), suit)
-	_box_part("BootL", Vector3(0.2, 0.16, 0.38), Vector3(-0.16, 0.08, -0.06), boot)
-	_box_part("BootR", Vector3(0.2, 0.16, 0.38), Vector3(0.16, 0.08, -0.06), boot)
-	_box_part("ChestPatch", Vector3(0.2, 0.16, 0.03), Vector3(0, 1.27, -0.19), accent)
+func humanoid_skeleton() -> Skeleton3D:
+	return _skeleton
 
-func _set_position(part_name: String, value: Vector3) -> void:
-	var part := _parts.get(part_name) as Node3D
-	if part:
-		part.position = value
+func _on_animation_state_changed(_state: String) -> void:
+	_play_active_animation()
 
-func _set_rotation(part_name: String, value: Vector3) -> void:
-	var part := _parts.get(part_name) as Node3D
-	if part:
-		part.rotation = value
+func _on_action_changed(_action: String) -> void:
+	_play_active_animation()
 
-func _apply_presentation() -> void:
-	var state := "idle"
-	if _animation_state:
-		state = str(_animation_state.get("current"))
-	var crouched := state == "crouch" or state == "crouch_walk" or state == "prone" or state == "prone_crawl"
-	var moving := state == "walk" or state == "jog" or state == "sprint" or state == "crouch_walk" or state == "prone_crawl"
-	var frequency := 1.8
-	if state == "jog":
-		frequency = 3.2
-	elif state == "sprint":
-		frequency = 4.4
-	elif state == "crouch_walk":
-		frequency = 1.45
-	var gait := sin(_phase * frequency)
-	var bob := absf(sin(_phase * frequency)) * (0.025 if moving else 0.0)
-	var height_scale := 0.72 if crouched else 1.0
-	var torso_y := 0.88 if crouched else 1.14
-	_set_position("Torso", Vector3(0, torso_y + bob, 0))
-	_set_position("Vest", Vector3(0, torso_y + 0.02 + bob, -0.02))
-	_set_position("Head", Vector3(0, (1.40 if crouched else 1.72) + bob, 0))
-	_set_position("Hair", Vector3(0, (1.51 if crouched else 1.83) + bob, 0.035))
-	_set_position("Neck", Vector3(0, (1.31 if crouched else 1.53) + bob, 0))
-	_set_position("Hips", Vector3(0, 0.60 if crouched else 0.76, 0))
-	_set_position("ArmL", Vector3(-0.36, torso_y - 0.02, 0))
-	_set_position("ArmR", Vector3(0.36, torso_y - 0.02, 0))
-	_set_position("HandL", Vector3(-0.36, torso_y - 0.37, -0.01))
-	_set_position("HandR", Vector3(0.36, torso_y - 0.37, -0.01))
-	_set_position("LegL", Vector3(-0.16, 0.34 if crouched else 0.43, 0))
-	_set_position("LegR", Vector3(0.16, 0.34 if crouched else 0.43, 0))
-	_set_position("BootL", Vector3(-0.16, 0.07, -0.06))
-	_set_position("BootR", Vector3(0.16, 0.07, -0.06))
-	var swing := gait * (0.28 if moving else 0.04)
-	_set_rotation("ArmL", Vector3(-swing, 0, 0))
-	_set_rotation("ArmR", Vector3(swing, 0, 0))
-	_set_rotation("LegL", Vector3(swing, 0, 0))
-	_set_rotation("LegR", Vector3(-swing, 0, 0))
-	if state == "prone" or state == "prone_crawl":
-		rotation.x = -0.12
-		_set_position("Torso", Vector3(0, 0.48, 0.12))
-	else:
-		rotation.x = 0.0
-	_skeleton.set_bone_pose_position(_skeleton.find_bone("root"), Vector3.ZERO)
+func _play_active_animation() -> void:
+	if _animation_player == null or _animation_state == null:
+		return
+	var animation_name := str(_animation_state.current)
+	match str(_animation_state.action_state):
+		"TURN":
+			animation_name = "turn"
+		"INTERACTION":
+			animation_name = "interaction"
+		"HURT":
+			animation_name = "hurt"
+		"RECOIL":
+			animation_name = "recoil"
+		"COMBAT_STANCE":
+			animation_name = "combat_stance"
+	if animation_name == "jog" or animation_name == "sprint" or animation_name == "air":
+		animation_name = "run" if animation_name != "jog" else "jog"
+	if animation_name == _playing_animation and _animation_player.is_playing():
+		return
+	if _animation_player.has_animation(animation_name):
+		_playing_animation = animation_name
+		_animation_player.play(animation_name, 0.12)
+
+func _on_clothing_state_changed(slot: String, item_id: String) -> void:
+	if slot != "OUTER_LAYER":
+		return
+	var equipped := item_id == "FIELD_SHELL" or item_id == "WEATHER_SHELL"
+	_set_field_layer_visible(equipped)
+
+func _apply_opening_clothing_state() -> void:
+	# Corley begins wet and under-equipped in a worn tank, prison medical trousers,
+	# and badly worn slip-ons. The optional weather shell stays stowed.
+	_set_field_layer_visible(false)
+
+func _set_field_layer_visible(visible_state: bool) -> void:
+	if _model == null:
+		return
+	var nodes: Array[Node] = []
+	_collect_nodes(_model, nodes)
+	for node in nodes:
+		if str(node.name).begins_with("FieldLayer_") and node is GeometryInstance3D:
+			(node as GeometryInstance3D).visible = visible_state
+
+func _on_injury_presentation_changed(region: String, severity: float, treatment: String) -> void:
+	if not _injury_nodes.has(region):
+		return
+	var nodes: Dictionary = _injury_nodes[region]
+	var active := severity >= 0.12
+	var wrapped := active and treatment == "WRAPPED"
+	(nodes["abrasion"] as MeshInstance3D).visible = active and not wrapped
+	(nodes["wrap"] as MeshInstance3D).visible = wrapped
+
+func _collect_nodes(node: Node, output: Array[Node]) -> void:
+	for child in node.get_children():
+		output.append(child)
+		_collect_nodes(child, output)

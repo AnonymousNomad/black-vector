@@ -1,8 +1,9 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/world/graybox_block.tscn" id="2"]
 [ext_resource type="PackedScene" path="res://scenes/slice/human_presence.tscn" id="3"]
+[ext_resource type="Script" path="res://scripts/slice/strand_presentation.gd" id="4_presentation"]
 
 [sub_resource type="PlaneMesh" id="floor_mesh"]
 size = Vector2(20, 20)
@@ -15,6 +16,7 @@ albedo_color = Color(0.19, 0.22, 0.21, 1)
 roughness = 0.98
 
 [node name="SectorS1" type="Node3D"]
+script = ExtResource("4_presentation")
 
 [node name="StrandFloor" type="StaticBody3D" parent="."]
 collision_layer = 1

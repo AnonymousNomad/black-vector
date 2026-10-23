@@ -27,7 +27,8 @@ func classify_position(from_body: CharacterBody3D, position: Vector3) -> Diction
 		if _blocked(space, position + Vector3.UP * LATERAL_HEIGHT, direction, LATERAL_PROBE, exclude):
 			lateral += 1
 	var near_conceal := _near_conceal(position)
-	var elevated := position.y - ELEVATION_BASE > ELEVATION_THRESHOLD
+	var ground_height := _ground_height(from_body, position)
+	var elevated := position.y - ground_height > ELEVATION_THRESHOLD
 	var classification := "EXPOSED_GROUND"
 	if elevated and not overhead and lateral <= 1:
 		classification = "ELEVATED_OBSERVATION"
@@ -62,6 +63,7 @@ func assess_route(from_body: CharacterBody3D, from_position: Vector3, to_positio
 	var best_concealment := -1.0
 	for i in range(sample_count):
 		var point := from_position.lerp(to_position, float(i) / float(sample_count - 1))
+		point = _snap_route_point_to_walkable_ground(from_body, point)
 		var report := classify_position(from_body, point)
 		var cls := str(report.get("classification", "EXPOSED_GROUND"))
 		if cls == "EXPOSED_GROUND":
@@ -93,6 +95,30 @@ func assess_route(from_body: CharacterBody3D, from_position: Vector3, to_positio
 		"observation_advantage": observation_sum / float(sample_count),
 		"fallback": best,
 	}
+
+func _snap_route_point_to_walkable_ground(from_body: CharacterBody3D, point: Vector3) -> Vector3:
+	# Route samples are often supplied as horizontal map coordinates. Follow the
+	# actual ground surface so sloped terrain is not misread as lateral cover.
+	point.y = _ground_height(from_body, point) + 0.025
+	return point
+
+func _ground_height(from_body: CharacterBody3D, point: Vector3) -> float:
+	var exclude: Array[RID] = [from_body.get_rid()]
+	var space := from_body.get_world_3d().direct_space_state
+	for _attempt in range(8):
+		var query := PhysicsRayQueryParameters3D.create(point + Vector3.UP * 12.0, point - Vector3.UP * 12.0)
+		query.exclude = exclude
+		query.collide_with_areas = false
+		query.collide_with_bodies = true
+		var hit := space.intersect_ray(query)
+		if hit.is_empty():
+			break
+		var collider := hit.get("collider") as Node
+		if collider is GrayboxBlock:
+			exclude.append((collider as CollisionObject3D).get_rid())
+			continue
+		return (hit.get("position") as Vector3).y
+	return ELEVATION_BASE
 
 func assess_body(body: CharacterBody3D) -> Dictionary:
 	if body == null:

@@ -1,8 +1,9 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/world/graybox_block.tscn" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/slice/human_presence.tscn" id="2"]
 [ext_resource type="Script" path="res://scripts/slice/human_routine_stop.gd" id="3"]
+[ext_resource type="Script" path="res://scripts/slice/gyle_cannery_presentation.gd" id="4_presentation"]
 
 [sub_resource type="PlaneMesh" id="pad_mesh"]
 size = Vector2(24, 10)
@@ -31,6 +32,7 @@ end_hour = 18.0
 dwell_seconds = 12.0
 
 [node name="GyleCannery" type="Node3D"]
+script = ExtResource("4_presentation")
 
 [node name="CanneryPad" type="StaticBody3D" parent="."]
 collision_layer = 1

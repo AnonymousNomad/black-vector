@@ -1,3 +1,4 @@
+class_name GrayboxBlock
 extends StaticBody3D
 
 @export_enum("mantle", "vault", "climb", "conceal", "ledge", "inspect", "open", "collect", "rest", "recover", "survey", "record", "restore") var affordance: String = ""

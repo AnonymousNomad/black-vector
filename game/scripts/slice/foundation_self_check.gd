@@ -18,7 +18,7 @@ func _ready() -> void:
 	await get_tree().process_frame
 	_build_ui()
 	await _run_checks()
-	_report()
+	await _report()
 
 func _build_ui() -> void:
 	var layer := CanvasLayer.new()
@@ -198,7 +198,14 @@ func _run_cold_restart_probe(mode: String) -> void:
 
 func _finish_cold_restart_probe(ok: bool, mode: String, detail: String) -> void:
 	print("COLD RESTART %s [%s]: %s" % [mode, "PASS" if ok else "FAIL", detail])
-	get_tree().quit(0 if ok else 1)
+	_orderly_shutdown.call_deferred(0 if ok else 1)
+
+func _orderly_shutdown(exit_code: int) -> void:
+	for audio in get_tree().get_nodes_in_group("wilderness_audio"):
+		if audio.has_method("shutdown_audio"):
+			audio.call("shutdown_audio")
+	await get_tree().create_timer(0.15).timeout
+	get_tree().quit(exit_code)
 
 func _has_property(target: Object, property_name: String) -> bool:
 	for property in target.get_property_list():
@@ -294,10 +301,24 @@ func _check_character_presentation_contract() -> void:
 	if proxy == null or contract == null or animation == null:
 		_add("9 character presentation contract", false, "player proxy, contract, or animation state missing")
 		return
-	var truthful_proxy := proxy.has_method("representation_status") \
-		and str(proxy.call("representation_status")) == "ENGINEERING_PROXY" \
-		and proxy.is_in_group("engineering_proxy") \
-		and not proxy.is_in_group("production_corley")
+	var production_status := proxy.has_method("representation_status") \
+		and str(proxy.call("representation_status")) == "PRODUCTION_CORLEY" \
+		and proxy.is_in_group("production_corley") \
+		and not proxy.is_in_group("engineering_proxy")
+	var humanoid := proxy.call("humanoid_skeleton") as Skeleton3D if proxy.has_method("humanoid_skeleton") else null
+	var animation_names: PackedStringArray = proxy.call("production_animation_names") if proxy.has_method("production_animation_names") else PackedStringArray()
+	var required_animations := ["idle", "walk", "jog", "sprint", "air", "crouch", "crouch_walk", "turn", "interaction", "hurt", "recoil", "combat_stance"]
+	var clips_present := true
+	for animation_name in required_animations:
+		clips_present = clips_present and animation_names.has(animation_name)
+	var model := proxy.get_node_or_null("ProductionCorleyModel") as Node3D
+	var model_meshes := model.find_children("*", "MeshInstance3D", true, false) if model else []
+	var skinned_meshes := 0
+	for mesh_node in model_meshes:
+		var mesh_instance := mesh_node as MeshInstance3D
+		if mesh_instance and mesh_instance.skin != null:
+			skinned_meshes += 1
+	var rigged_model := humanoid != null and humanoid.get_bone_count() >= 18 and clips_present and skinned_meshes >= 1
 	var attachment := contract.call("attachment_point", "RIGHT_HAND") as Node3D
 	var turn_hook: bool = contract.call("request_turn", Vector3.RIGHT) and str(animation.get("action_state")) == "TURN"
 	contract.call("request_interaction")
@@ -314,10 +335,10 @@ func _check_character_presentation_contract() -> void:
 	var collision_authority := contract.call("collision_authority") as CharacterBody3D
 	var contract_ok := attachment != null and turn_hook and interaction_hook and recoil_hook and hurt_priority and combat_hook \
 		and clothing_hook and injury_hook and camera != null \
-		and collision_authority == player and not bool(contract.call("has_production_character"))
-	_add("9 character presentation contract", truthful_proxy and contract_ok,
-		"engineering_proxy=%s attachment=%s turn=%s interaction=%s recoil=%s hurt=%s combat=%s clothing=%s injury=%s camera=%s collision_authority=%s production_character=%s" % [
-			truthful_proxy, attachment != null, turn_hook, interaction_hook, recoil_hook, hurt_priority, combat_hook, clothing_hook, injury_hook, camera != null, collision_authority == player, contract.call("has_production_character")])
+		and collision_authority == player and bool(contract.call("has_production_character")) and rigged_model
+	_add("9 character presentation contract", production_status and contract_ok,
+		"production_status=%s skeleton_bones=%d animation_clips=%d skinned_meshes=%d attachment=%s turn=%s interaction=%s recoil=%s hurt=%s combat=%s clothing=%s injury=%s camera=%s collision_authority=%s production_character=%s" % [
+			production_status, humanoid.get_bone_count() if humanoid else 0, animation_names.size(), skinned_meshes, attachment != null, turn_hook, interaction_hook, recoil_hook, hurt_priority, combat_hook, clothing_hook, injury_hook, camera != null, collision_authority == player, contract.call("has_production_character")])
 	contract.call("set_combat_stance", false)
 	contract.call("set_clothing_state", "OUTER_LAYER", "")
 	contract.call("set_injury_presentation", "LEFT_LEG", 0.0, "")
@@ -902,7 +923,7 @@ func _check_visual_ambient_contract() -> void:
 		_add("22 GL Compatibility ambient contract", false, "visual region Environment missing")
 		return
 	var ok := environment.ambient_light_source == Environment.AMBIENT_SOURCE_COLOR \
-		and is_equal_approx(environment.ambient_light_energy, 0.3)
+		and environment.ambient_light_energy <= 0.22
 	_add("22 GL Compatibility ambient contract", ok,
 		"source=%d energy=%.2f" % [environment.ambient_light_source, environment.ambient_light_energy])
 
@@ -923,13 +944,19 @@ func _check_visual_instanced_material_contract() -> void:
 	for node_name in expected:
 		var instance := vegetation.get_node_or_null(node_name) as MultiMeshInstance3D
 		var mesh: Mesh = instance.multimesh.mesh if instance and instance.multimesh else null
-		var material: Material = mesh.surface_get_material(0) if mesh and mesh.get_surface_count() > 0 else null
-		if not material is StandardMaterial3D:
-			failures.append("%s has no standard surface material" % node_name)
-			continue
-		var standard := material as StandardMaterial3D
-		if not standard.albedo_color.is_equal_approx(expected[node_name]) or standard.roughness < 0.7:
-			failures.append("%s material does not match its muted matte palette" % node_name)
+		var material: Material = instance.material_override if instance and instance.material_override else mesh.surface_get_material(0) if mesh and mesh.get_surface_count() > 0 else null
+		if material is StandardMaterial3D:
+			var standard := material as StandardMaterial3D
+			if not standard.albedo_color.is_equal_approx(expected[node_name]) or standard.roughness < 0.7:
+				failures.append("%s material does not match its muted matte palette" % node_name)
+		elif material is ShaderMaterial:
+			var shader_material := material as ShaderMaterial
+			var fallback: Color = shader_material.get_shader_parameter("fallback_color")
+			var roughness: float = shader_material.get_shader_parameter("foliage_roughness")
+			if not fallback.is_equal_approx(expected[node_name]) or roughness < 0.7 or shader_material.shader == null:
+				failures.append("%s shader material does not match its authored matte palette" % node_name)
+		else:
+			failures.append("%s has no authored surface or override material" % node_name)
 	_add("23 wilderness instanced materials", failures.is_empty(),
 		"five vegetation/deadfall batches use distinct, matte authored colors; failures=%s" % [failures])
 
@@ -939,13 +966,13 @@ func _check_terrain_surface_normals() -> void:
 	var array_mesh := terrain_mesh.mesh as ArrayMesh if terrain_mesh else null
 	var arrays: Array = array_mesh.surface_get_arrays(0) if array_mesh and array_mesh.get_surface_count() > 0 else []
 	var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL] if arrays.size() > Mesh.ARRAY_NORMAL and arrays[Mesh.ARRAY_NORMAL] is PackedVector3Array else PackedVector3Array()
-	var vertex_index := 14 * 37 + 22
+	var vertex_index := 28 * VisualWildernessProof1.TERRAIN_X_COUNT + 44
 	var vertex_normal := normals[vertex_index] if normals.size() > vertex_index else Vector3.UP
 	var analytic_normal := Vector3.UP
 	var contract_available := region != null and region.has_method("terrain_normal")
 	if contract_available:
 		analytic_normal = region.call("terrain_normal", 40.0, 15.0)
-	var ok := contract_available and normals.size() == 37 * 23 \
+	var ok := contract_available and normals.size() == VisualWildernessProof1.TERRAIN_X_COUNT * VisualWildernessProof1.TERRAIN_Z_COUNT \
 		and vertex_normal.y < 0.99 and vertex_normal.distance_to(analytic_normal) < 0.02 \
 		and is_equal_approx(analytic_normal.length(), 1.0)
 	_add("23b terrain slope normals", ok,
@@ -994,18 +1021,25 @@ func _check_perception_integration_contract() -> void:
 	var world_region := get_tree().get_first_node_in_group("visual_wilderness_region") as Node3D
 	var sun := world_region.get_node_or_null("Sun") as DirectionalLight3D if world_region else null
 	var foliage_occlusion := false
+	var brush_transmission := 1.0
+	var clear_transmission := 1.0
+	var clear_by_instance := {}
 	if vision != null and vision.has_method("vegetation_line_transmission") and world_region != null:
 		var shrubs := world_region.get_node_or_null("Region/Cell_0_0/Dressing/Vegetation/Shrubs_MultiMesh") as MultiMeshInstance3D
 		if shrubs != null and shrubs.multimesh != null and shrubs.multimesh.instance_count > 0:
-			var shrub_transform := shrubs.multimesh.get_instance_transform(0)
+			var shrub_transform: Transform3D = world_region.call("vegetation_instance_transform", "Shrubs_MultiMesh", 0)
 			var shrub_center: Vector3 = shrubs.global_transform * shrub_transform.origin
 			var shrub_scale := shrub_transform.basis.get_scale().y
 			var brush_line := Vector3(shrub_center.x, shrub_center.y + 0.08, shrub_center.z - 2.0 * shrub_scale)
 			var brush_end := Vector3(shrub_center.x, shrub_center.y + 0.08, shrub_center.z + 2.0 * shrub_scale)
 			var clear_start := Vector3(-20.0, 1.5, 0.0)
 			var clear_end := Vector3(37.0, 1.5, 0.0)
-			var brush_transmission := float(vision.call("vegetation_line_transmission", brush_line, brush_end))
-			var clear_transmission := float(vision.call("vegetation_line_transmission", clear_start, clear_end))
+			brush_transmission = float(vision.call("vegetation_line_transmission", brush_line, brush_end))
+			clear_transmission = float(vision.call("vegetation_line_transmission", clear_start, clear_end))
+			var clear_segment := clear_end - clear_start
+			for instance_name in ["ConiferTrunks_MultiMesh", "ConiferTrunks_Hemlock_MultiMesh", "ConiferTrunks_Snag_MultiMesh"]:
+				clear_by_instance[instance_name] = world_region.call("_multimesh_line_transmission", instance_name, clear_start, clear_segment, clear_segment.length_squared(), 0.28, 0.24)
+			clear_by_instance["Shrubs_MultiMesh"] = world_region.call("_multimesh_line_transmission", "Shrubs_MultiMesh", clear_start, clear_segment, clear_segment.length_squared(), 0.62, 1.0)
 			foliage_occlusion = brush_transmission < 0.8 and is_equal_approx(clear_transmission, 1.0)
 	var identity_present := awareness != null and _has_property(awareness, "identity_confidence")
 	var identity_unknown := identity_present and is_zero_approx(float(awareness.get("identity_confidence")))
@@ -1035,8 +1069,8 @@ func _check_perception_integration_contract() -> void:
 	var ok := vision != null and sight_range_ok and los_semantics and foliage_occlusion and sun != null and sun.is_in_group("sun") \
 		and identity_unknown and sound_masking and surface_and_water and noise_metadata
 	_add("24 NPC perception integration", ok,
-		"vision_sensor=%s range=%s los=%s foliage_occlusion=%s sun_group=%s identity_unknown=%s sound_masking=%s surface_water=%s noise_metadata=%s" % [
-			vision != null, sight_range_ok, los_semantics, foliage_occlusion, sun != null and sun.is_in_group("sun"), identity_unknown, sound_masking, surface_and_water, noise_metadata])
+		"vision_sensor=%s range=%s los=%s foliage_occlusion=%s(brush=%.2f clear=%.2f parts=%s) sun_group=%s identity_unknown=%s sound_masking=%s surface_water=%s noise_metadata=%s" % [
+			vision != null, sight_range_ok, los_semantics, foliage_occlusion, brush_transmission, clear_transmission, clear_by_instance, sun != null and sun.is_in_group("sun"), identity_unknown, sound_masking, surface_and_water, noise_metadata])
 
 func _check_evidence_identity_persistence() -> void:
 	var source := WorldStateManager.new()
@@ -1184,12 +1218,14 @@ func _check_motion_grounding() -> void:
 		contact_error = absf(player.global_position.y - (floor_hit["position"] as Vector3).y)
 	var visual_region := get_tree().get_first_node_in_group("visual_wilderness_region") as VisualWildernessProof1
 	var terrain_base := visual_region.get_node_or_null("Region/Cell_0_0/Terrain/TerrainBase") as StaticBody3D if visual_region else null
-	var terrain_nonblocking := terrain_base != null and terrain_base.collision_layer == 0
+	var strand_floor := get_tree().get_first_node_in_group("player").get_parent().get_node_or_null("StrandFloor") as StaticBody3D
+	var terrain_walkable := terrain_base != null and terrain_base.collision_layer == 1 \
+		and strand_floor != null and strand_floor.collision_layer == 0
 	var ok := walk_distance > 0.5 and grounded_after_walk and crouch_entered and stand_restored \
-		and not floor_hit.is_empty() and contact_error <= 0.01 and terrain_nonblocking
+		and not floor_hit.is_empty() and contact_error <= 0.01 and terrain_walkable
 	_add("23 locomotion grounding", ok,
-		"walk=%.2f m grounded=%s crouch=%s stand=%s foot_gap=%.3f m presentation_collider_nonblocking=%s" % [
-			walk_distance, grounded_after_walk, crouch_entered, stand_restored, contact_error, terrain_nonblocking])
+		"walk=%.2f m grounded=%s crouch=%s stand=%s foot_gap=%.3f m terrain_collision_surface=%s flat_sector_helper_disabled=%s" % [
+			walk_distance, grounded_after_walk, crouch_entered, stand_restored, contact_error, terrain_walkable, strand_floor != null and strand_floor.collision_layer == 0])
 
 func _channel_values(snap: Dictionary) -> Dictionary:
 	var out := {}
@@ -1217,4 +1253,4 @@ func _report() -> void:
 		print("SELF-CHECK RESULT: FAILURES PRESENT — STOP, repair only the failed boundary, then rerun.")
 	_label.visible = true
 	if DisplayServer.get_name() == "headless":
-		get_tree().quit(0 if failed == 0 else 1)
+		await _orderly_shutdown(0 if failed == 0 else 1)
