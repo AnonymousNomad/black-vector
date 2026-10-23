@@ -18,6 +18,8 @@ Its supported local operations are authoritative for asset request schemas. The 
 
 No `game-dev` executable, canonical repository, installation mechanism, version, or trusted package source was present in the environment or enabled tool catalog. A same-named package could not be tied to the skill. Result: **`GAME_DEV_CANONICAL_SOURCE_UNRESOLVED`**. No guessed package was installed. The approved self-created Blender/Python workflow was available and used, so production work continued.
 
+The skill does not name a canonical repository/distribution or state a fixed runtime-dependency list. It directs the operator to discover the installed command/schema surface and dependencies with `game-dev capabilities --json` and `game-dev doctor --json`; `game-dev credentials status --json` checks provider setup without returning secret values. Provider execution requires `game-dev` 1.0.2 or newer. The intended validation role is to inspect actual source bytes, validate them against an explicit game policy, normalize only when inspection identifies a need, re-inspect/re-validate normalized output, and verify the canonical package. Package metadata should bind source digest, provenance, license, transformations, and validation. Because the CLI and package source were absent, its precise current version, runtime dependencies, installed operations, and package identity could not be verified; these are not inferred here.
+
 ## Original project assets
 
 | Asset | Source and creator | Hash | License and rights |
