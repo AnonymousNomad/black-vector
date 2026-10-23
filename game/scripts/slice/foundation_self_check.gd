@@ -44,6 +44,7 @@ func _run_checks() -> void:
 	_check_keyboard_controller()
 	_check_game_world()
 	_check_camera_structure()
+	_check_character_presentation_contract()
 	await _check_save_round_trip()
 	_check_gl_compat()
 	_check_d032_cannery()
@@ -139,6 +140,43 @@ func _check_camera_structure() -> void:
 	_add("8 camera structure", visible_framing,
 		"active=%s player_distance=%.2f m forward_alignment=%.2f behind_alignment=%.2f camera_position=%s spring_length=%.2f m hit_length=%.2f m" % [
 			active, distance, forward_alignment, player_forward.dot((camera.global_position - player.global_position).normalized()), camera.global_position, spring_arm.spring_length, spring_arm.get_hit_length()])
+
+func _check_character_presentation_contract() -> void:
+	var player := get_tree().get_first_node_in_group("player") as Node3D
+	var proxy := player.get_node_or_null("CorleyProxy") if player else null
+	var contract := player.get_node_or_null("CharacterPresentation") if player else null
+	var animation := player.get_node_or_null("AnimationState") if player else null
+	if proxy == null or contract == null or animation == null:
+		_add("9 character presentation contract", false, "player proxy, contract, or animation state missing")
+		return
+	var truthful_proxy := proxy.has_method("representation_status") \
+		and str(proxy.call("representation_status")) == "ENGINEERING_PROXY" \
+		and proxy.is_in_group("engineering_proxy") \
+		and not proxy.is_in_group("production_corley")
+	var attachment := contract.call("attachment_point", "RIGHT_HAND") as Node3D
+	var turn_hook: bool = contract.call("request_turn", Vector3.RIGHT) and str(animation.get("action_state")) == "TURN"
+	contract.call("request_interaction")
+	var interaction_hook := str(animation.get("action_state")) == "INTERACTION"
+	contract.call("request_recoil")
+	var recoil_hook := str(animation.get("action_state")) == "RECOIL"
+	contract.call("request_hurt", 0.5)
+	var hurt_priority := str(animation.get("action_state")) == "HURT"
+	contract.call("set_combat_stance", true)
+	var combat_hook := bool(contract.get("combat_stance"))
+	var clothing_hook: bool = contract.call("set_clothing_state", "OUTER_LAYER", "OPENING_WET_LAYER")
+	var injury_hook: bool = contract.call("set_injury_presentation", "LEFT_LEG", 0.4, "WRAPPED")
+	var camera := contract.call("camera_anchor") as Node3D
+	var collision_authority := contract.call("collision_authority") as CharacterBody3D
+	var contract_ok := attachment != null and turn_hook and interaction_hook and recoil_hook and hurt_priority and combat_hook \
+		and clothing_hook and injury_hook and camera != null \
+		and collision_authority == player and not bool(contract.call("has_production_character"))
+	_add("9 character presentation contract", truthful_proxy and contract_ok,
+		"engineering_proxy=%s attachment=%s turn=%s interaction=%s recoil=%s hurt=%s combat=%s clothing=%s injury=%s camera=%s collision_authority=%s production_character=%s" % [
+			truthful_proxy, attachment != null, turn_hook, interaction_hook, recoil_hook, hurt_priority, combat_hook, clothing_hook, injury_hook, camera != null, collision_authority == player, contract.call("has_production_character")])
+	contract.call("set_combat_stance", false)
+	contract.call("set_clothing_state", "OUTER_LAYER", "")
+	contract.call("set_injury_presentation", "LEFT_LEG", 0.0, "")
+	animation.call("clear_action_if", "HURT")
 
 func _check_save_round_trip() -> void:
 	var gw := get_tree().get_first_node_in_group("game_world")

@@ -13,6 +13,7 @@ extends CharacterBody3D
 @onready var combat_controller := $CombatController as CombatController
 @onready var body_state := $BodyState as BodyState
 @onready var animation_state := $AnimationState as AnimationState
+@onready var character_presentation := $CharacterPresentation as CharacterPresentationContract
 
 func _ready() -> void:
 	add_to_group("player")
@@ -37,6 +38,7 @@ func _physics_process(delta: float) -> void:
 		update_signature(delta)
 		return
 	if Input.is_action_just_pressed("interact"):
+		character_presentation.request_interaction()
 		interaction_probe.activate(stance_controller.is_stowed())
 	var sprint := Input.is_action_pressed("sprint") and tactical_controller.sprint_allowed()
 	var throttle := clampf(input_vector.length(), 0.0, 1.0)

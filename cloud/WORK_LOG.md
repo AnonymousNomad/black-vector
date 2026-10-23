@@ -63,4 +63,20 @@ The C0 checkpoint `7c196a27fc4035d710d596b9053ecd6fe3b46862` was pushed to `orig
 
 Status: **BLOCKED before asset creation or admission.** The required `game-dev` CLI is unavailable (`command -v game-dev` returned no executable). The game asset production/vendoring workflow requires that CLI for source inspection, package provenance/license validation, canonical packaging, and project admission. This repository has no production Corley model or texture package. No provider job, external download, asset package, or project admission was attempted; no substitute provider was used. No software was installed and no credentials were requested. C1 remains open until the supported CLI and auditable asset workflow are available.
 
-This is the first queue stop: the player character is P0 and must not be skipped or represented as complete with the existing proxy. Independent missions were not started because the approved queue puts C1 first and C2 visual acceptance depends on a production character. The final receipt records the exact blocker and C0 evidence.
+At the time of this entry the queue was parked at C1. The operator later authorized continuing all work independent of the asset pipeline; that continuation supersedes the queue-wide stop recorded here. The production character remains P0 and is not accepted with the existing proxy.
+
+## Operator continuation around the C1 blocker — 2026-10-23
+
+Decision: park only C1 production-asset generation/admission. Classify it as **`BV-C1_CHARACTER_ASSET_BLOCKED_EXTERNAL_TOOLCHAIN`** because the approved `game-dev` executable is absent. Do not retry the executable, install software, use another asset provider, or claim the proxy is production Corley. Continue with code, systems, content, persistence, Android checks, and review that do not require that asset.
+
+### BV-C3 routine behavior foundation — partial
+
+Added an opt-in schedule-driven routine component for human presences. `HumanRoutineStop` supports day and overnight hour windows plus IDLE, WORK, and INSPECT behavior; the presence actor travels to the active stop, completes its configured dwell, handles a short conversation hook, and idles outside authored hours. `GameWorld` yields routine movement to `HumanAwareness` while a human is suspicious or investigating. No schedule was assigned to the canonical F1 survivor, so normal-play content does not invent a new patrol or contradict the first-contact beat. This is systems foundation, not C3 acceptance.
+
+### BV-C1 asset-independent character contract — partial
+
+Added a tested `CharacterPresentationContract` alongside the movement-authoritative player body. It defines named equipment attachment points, clothing slots, injury regions, turn/interaction/recoil/hurt/combat-stance action hooks, and the camera/collision relationship. The procedural character explicitly reports `ENGINEERING_PROXY`; there is no production Corley tag or visual acceptance claim. The contract carries requests and state for a future animation/rig adapter; it does not add final rig, cloth, mesh, or animation assets.
+
+Verification: focused routine physics fixture **PASS** (travel, WORK/INSPECT schedule changes, overnight schedule, conversation pause/resumption, and off-shift idle); foundation harness **24/24**; static verifier **39/39**; strict Godot editor parse gate passed; `git diff --check` clean. Four existing ObjectDB shutdown leak warnings remain. No routine schedule is yet authored into the playable slice; C3 remains PARTIAL.
+
+Next: continue C2–C13 and return to production Corley asset closure when the approved `game-dev` workflow is available.

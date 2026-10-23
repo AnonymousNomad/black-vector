@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="Script" path="res://scripts/player/player.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/player/movement_controller.gd" id="2"]
@@ -13,6 +13,7 @@
 [ext_resource type="Script" path="res://scripts/player/body_state.gd" id="11"]
 [ext_resource type="Script" path="res://scripts/player/animation_state.gd" id="12"]
 [ext_resource type="PackedScene" path="res://scenes/player/corley_proxy.tscn" id="13_proxy"]
+[ext_resource type="Script" path="res://scripts/player/character_presentation_contract.gd" id="14"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_body"]
 radius = 0.35
@@ -59,6 +60,9 @@ script = ExtResource("11")
 
 [node name="AnimationState" type="Node" parent="."]
 script = ExtResource("12")
+
+[node name="CharacterPresentation" type="Node" parent="."]
+script = ExtResource("14")
 
 [node name="CorleyProxy" parent="." instance=ExtResource("13_proxy")]
 

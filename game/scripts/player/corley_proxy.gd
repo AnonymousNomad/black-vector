@@ -11,10 +11,14 @@ var _skeleton: Skeleton3D
 
 func _ready() -> void:
 	add_to_group("corley_proxy")
+	add_to_group("engineering_proxy")
 	_animation_state = get_parent().get_node_or_null("AnimationState")
 	_build_skeleton()
 	_build_future_attachment_points()
 	_build_body()
+
+func representation_status() -> String:
+	return "ENGINEERING_PROXY"
 
 func _process(delta: float) -> void:
 	_phase += delta

@@ -40,6 +40,7 @@ var _move_trace_accum := 0.0
 var _route_anchor := Vector3.ZERO
 var _route_anchor_valid := false
 var _presence_awareness: Array[HumanAwareness] = []
+var _presence_routines: Array[HumanPresence] = []
 
 func _enter_tree() -> void:
 	add_to_group("game_world")
@@ -184,9 +185,12 @@ func wire_input() -> void:
 			im.call("configure", settings.profile)
 
 func wire_presences() -> void:
+	_presence_awareness.clear()
+	_presence_routines.clear()
 	for node in get_tree().get_nodes_in_group("human_presence"):
 		var presence := node as HumanPresence
 		if presence:
+			_presence_routines.append(presence)
 			presence.bind(world_state)
 			presence.record_evidence()
 			var awareness := presence.get_node_or_null("Awareness") as HumanAwareness
@@ -217,6 +221,13 @@ func _process(_delta: float) -> void:
 		_record_route_traversal(player)
 		for awareness in _presence_awareness:
 			awareness.update(_delta, player)
+		for presence in _presence_routines:
+			if not is_instance_valid(presence):
+				continue
+			presence.update_conversation(_delta)
+			var awareness := presence.get_node_or_null("Awareness") as HumanAwareness
+			if awareness == null or awareness.state == HumanAwareness.State.UNAWARE:
+				presence.update_routine(_delta, world_state.clock_hour)
 		contact.update(_delta, player)
 		player_state.position = player.global_position
 		if interaction.probe != null:
