@@ -40,6 +40,7 @@ var routes: Array = []
 var human_records := {}
 var awareness_records := {}
 var contact_records := {}
+var presence_records := {}
 var narrative_seen := {}
 var clock_hour := 0.0
 
@@ -252,6 +253,13 @@ func record_contact(id: String, data: Dictionary) -> Dictionary:
 func contact_record(id: String) -> Dictionary:
 	return contact_records.get(id, {})
 
+func set_presence_record(id: String, data: Dictionary) -> void:
+	if id != "":
+		presence_records[id] = data.duplicate(true)
+
+func presence_record(id: String) -> Dictionary:
+	return presence_records.get(id, {})
+
 func mark_seen(id: String) -> void:
 	if id != "":
 		narrative_seen[id] = true
@@ -281,6 +289,7 @@ func snapshot() -> Dictionary:
 		"human_records": human_records.duplicate(true),
 		"awareness_records": awareness_records.duplicate(true),
 		"contact_records": contact_records.duplicate(true),
+		"presence_records": presence_records.duplicate(true),
 		"narrative_seen": narrative_seen.duplicate(true),
 	}
 
@@ -325,6 +334,11 @@ func restore(snap: Dictionary) -> void:
 		var contact_data: Variant = snap["contact_records"]
 		if contact_data is Dictionary:
 			contact_records = (contact_data as Dictionary).duplicate(true)
+	presence_records = {}
+	if snap.has("presence_records"):
+		var presence_data: Variant = snap["presence_records"]
+		if presence_data is Dictionary:
+			presence_records = (presence_data as Dictionary).duplicate(true)
 	if snap.has("narrative_seen"):
 		var seen_data: Variant = snap["narrative_seen"]
 		if seen_data is Dictionary:

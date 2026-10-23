@@ -25,11 +25,19 @@ var _routine_target := Vector3.ZERO
 var _routine_speech_remaining := 0.0
 var _routine_activity := "SHELTERING"
 var _routine_dwell_elapsed := 0.0
+var _spawn_transform := Transform3D.IDENTITY
+var _spawn_posture := "STAND"
+var _spawn_activity := "SHELTERING"
+var _spawn_threat_level := "UNKNOWN"
 
 func _ready() -> void:
 	add_to_group("human_presence")
 	_routine_origin = global_position
 	_routine_target = global_position
+	_spawn_transform = global_transform
+	_spawn_posture = posture
+	_spawn_activity = activity
+	_spawn_threat_level = threat_level
 
 func bind(w: WorldStateManager) -> void:
 	world = w
@@ -152,6 +160,48 @@ func _apply_routine_gravity(delta: float) -> void:
 		velocity.y = 0.0
 	else:
 		velocity.y -= routine_gravity * delta
+
+func snapshot() -> Dictionary:
+	return {
+		"position": [global_position.x, global_position.y, global_position.z],
+		"rotation_y": rotation.y,
+		"posture": posture,
+		"activity": activity,
+		"threat_level": threat_level,
+		"routine_state": routine_state,
+		"routine_index": routine_index,
+		"routine_dwell_elapsed": _routine_dwell_elapsed,
+	}
+
+func restore_from(record: Dictionary) -> void:
+	if record.is_empty():
+		global_transform = _spawn_transform
+		posture = _spawn_posture
+		activity = _spawn_activity
+		threat_level = _spawn_threat_level
+		routine_state = "IDLE"
+		routine_index = -1
+		_routine_target = _routine_origin
+		_routine_dwell_elapsed = 0.0
+		_routine_speech_remaining = 0.0
+		velocity = Vector3.ZERO
+		return
+	var position_data: Variant = record.get("position", [])
+	if position_data is Array and (position_data as Array).size() == 3:
+		global_position = Vector3(float(position_data[0]), float(position_data[1]), float(position_data[2]))
+	rotation.y = float(record.get("rotation_y", rotation.y))
+	posture = str(record.get("posture", posture))
+	activity = str(record.get("activity", activity))
+	threat_level = str(record.get("threat_level", threat_level))
+	routine_state = str(record.get("routine_state", routine_state))
+	routine_index = int(record.get("routine_index", -1))
+	if routine_index < 0 or routine_index >= routine_stops.size():
+		routine_index = -1
+	else:
+		_routine_target = _routine_origin + routine_stops[routine_index].offset
+	_routine_dwell_elapsed = maxf(0.0, float(record.get("routine_dwell_elapsed", 0.0)))
+	_routine_speech_remaining = 0.0
+	velocity = Vector3.ZERO
 
 func report() -> Dictionary:
 	return {

@@ -308,6 +308,7 @@ RAW_INPUT_WHITELIST = {
 
 WRITE_WRITERS = (Path("game/scripts/slice/save_state_manager.gd"),
                  Path("game/scripts/slice/settings_store.gd"))
+TEST_WRITE_FIXTURES = (Path("game/scripts/slice/foundation_self_check.gd"),)
 
 
 def verify_autoloads(config: str) -> list:
@@ -357,7 +358,13 @@ def verify_writer_ownership() -> list:
                     continue
             except OSError:
                 continue
-            if Path(full).relative_to(ROOT) not in WRITE_WRITERS:
+            relative = Path(full).relative_to(ROOT)
+            if relative in TEST_WRITE_FIXTURES:
+                test_source = _read_rel(full)
+                if "const CHECK_SLOT := 254" not in test_source or "DataPaths.save_path(CHECK_SLOT)" not in test_source:
+                    issues.append(f"test fixture writer is not constrained to its reserved save slot: {relative}")
+                continue
+            if relative not in WRITE_WRITERS:
                 issues.append(f"file-writer outside permitted managers: {os.path.relpath(full, ROOT)}")
     return issues
 
@@ -427,7 +434,7 @@ def verify_visual_wilderness() -> list:
     visual_script = _read_rel(os.path.join(ROOT, visual_script_rel))
     for token in ("planning_envelope", "planning_cell_size", "MultiMesh",
                   "visibility_range_end", "ConcavePolygonShape3D", "_terrain_height",
-                  "_build_water", "_build_cannery_landmark"):
+                  "_build_water", "_build_cannery_landmark", "surface_set_material"):
         if token not in visual_script:
             issues.append(f"visual wilderness script missing proof token: {token}")
 
@@ -655,7 +662,7 @@ def main() -> int:
     if writer_issues:
         issues.extend(writer_issues[:5])
     else:
-        ok.append("file-writers are only save_state_manager + settings_store")
+        ok.append("runtime file-writers are save/settings managers; recovery self-check is confined to slot 254")
 
     slice_issues = verify_slice_invariants()
     if slice_issues:

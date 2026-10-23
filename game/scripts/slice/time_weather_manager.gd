@@ -24,6 +24,11 @@ func _ready() -> void:
 func setup(w: WorldStateManager) -> void:
 	world = w
 
+func restore_clock(restored_hour: float, restored_weather: String) -> void:
+	hour = clampf(restored_hour, SLICE_START_HOUR, SLICE_END_HOUR)
+	elapsed = (hour - SLICE_START_HOUR) * 60.0
+	weather_target = world.WEATHER_STATES.find(restored_weather) if world else 0
+
 func tick(delta: float) -> void:
 	if world == null:
 		return

@@ -16,8 +16,13 @@ const CONTACT := "Contact"
 const PRESENTER := "Presentation"
 const CANNERY := "CanneryState"
 const BEATS := "BeatStaging"
+const PRESENCE_MIRROR_INTERVAL := 0.5
 
 @export var slice_seed := 0
+var startup_slot := 0
+
+var _startup_load_succeeded := false
+var _startup_load_failure := ""
 
 var time_weather: TimeWeatherManager
 var player_state: PlayerStateManager
@@ -37,6 +42,7 @@ var beats: BeatStaging
 var _player_body: BodyState
 var _player_signature: SignatureController
 var _move_trace_accum := 0.0
+var _presence_mirror_accum := 0.0
 var _route_anchor := Vector3.ZERO
 var _route_anchor_valid := false
 var _presence_awareness: Array[HumanAwareness] = []
@@ -56,6 +62,7 @@ func _ready() -> void:
 	wire_player()
 	wire_input()
 	wire_presences()
+	_resume_startup_state(startup_slot)
 
 func build_services() -> void:
 	world_state = WorldStateManager.new()
@@ -120,6 +127,7 @@ func wire_services() -> void:
 	presenter.bind(narrative)
 	player_state.seed_equipment(FieldItem.baseline_kit())
 	save_state.setup(world_state, player_state, time_weather, pressure)
+	save_state.snapshot_requested.connect(_mirror_presence_records)
 	save_state.load_completed.connect(_on_load_completed)
 	var cannery_root := get_node_or_null("GyleCannery") as Node3D
 	if cannery_root:
@@ -127,10 +135,29 @@ func wire_services() -> void:
 	else:
 		push_warning("D032: GyleCannery sub-scene not found")
 	beats.setup(world_state, narrative)
-	beats.stage_awakening()
 	world_state.channel_changed.connect(_on_channel_changed)
 	interaction.action_resolved.connect(_on_action_resolved)
 	add_to_group("game_world")
+
+func _resume_startup_state(slot: int) -> void:
+	var path := DataPaths.save_path(slot)
+	if not FileAccess.file_exists(path) and not FileAccess.file_exists(path + ".bak"):
+		beats.stage_awakening()
+		return
+	_startup_load_succeeded = false
+	_startup_load_failure = ""
+	save_state.load_completed.connect(_on_startup_load_completed, CONNECT_ONE_SHOT)
+	save_state.load_failed.connect(_on_startup_load_failed, CONNECT_ONE_SHOT)
+	save_state.load_slot(slot)
+	if not _startup_load_succeeded:
+		push_warning("Startup save could not be restored (%s); starting the authored opening." % _startup_load_failure)
+		beats.stage_awakening()
+
+func _on_startup_load_completed(_slot: int) -> void:
+	_startup_load_succeeded = true
+
+func _on_startup_load_failed(reason: String) -> void:
+	_startup_load_failure = reason
 
 func _on_load_completed(_slot: int) -> void:
 	var player := get_tree().get_first_node_in_group("player") as Node3D
@@ -139,6 +166,9 @@ func _on_load_completed(_slot: int) -> void:
 		var cam := player.get_node_or_null("CameraRig") as Node3D
 		if cam:
 			cam.global_position = player_state.position
+	for presence in _presence_routines:
+		if is_instance_valid(presence):
+			presence.restore_from(world_state.presence_record(presence.presence_id))
 	for awareness in _presence_awareness:
 		if awareness.presence:
 			awareness.restore_from(world_state.awareness_record(awareness.presence.presence_id))
@@ -193,6 +223,7 @@ func wire_presences() -> void:
 			_presence_routines.append(presence)
 			presence.bind(world_state)
 			presence.record_evidence()
+			world_state.set_presence_record(presence.presence_id, presence.snapshot())
 			var awareness := presence.get_node_or_null("Awareness") as HumanAwareness
 			if awareness:
 				awareness.bind(presence, world_state, recon)
@@ -202,6 +233,7 @@ func wire_presences() -> void:
 func _process(_delta: float) -> void:
 	time_weather.tick(_delta)
 	if Input.is_action_just_pressed("debug_save"):
+		_mirror_presence_records()
 		save_state.save_slot(0)
 	if Input.is_action_just_pressed("debug_load"):
 		save_state.load_slot(0)
@@ -228,10 +260,21 @@ func _process(_delta: float) -> void:
 			var awareness := presence.get_node_or_null("Awareness") as HumanAwareness
 			if awareness == null or awareness.state == HumanAwareness.State.UNAWARE:
 				presence.update_routine(_delta, world_state.clock_hour)
+		_presence_mirror_accum -= _delta
+		if _presence_mirror_accum <= 0.0:
+			_presence_mirror_accum = PRESENCE_MIRROR_INTERVAL
+			_mirror_presence_records()
 		contact.update(_delta, player)
 		player_state.position = player.global_position
 		if interaction.probe != null:
 			interaction.resolve(false)
+
+func _mirror_presence_records() -> void:
+	if world_state == null:
+		return
+	for presence in _presence_routines:
+		if is_instance_valid(presence):
+			world_state.set_presence_record(presence.presence_id, presence.snapshot())
 
 func _record_move_trace(player: CharacterBody3D, delta: float) -> void:
 	if _player_signature == null or not player.is_on_floor():

@@ -16,7 +16,7 @@ import re
 import sys
 from pathlib import Path
 
-ROOT = Path("/black-vector")
+ROOT = Path(__file__).resolve().parents[1]
 GAME_DIR = ROOT / "game"
 SKILLS = ROOT / ".opencode" / "skills"
 REGISTRY = ROOT / "skills" / "registry.md"

@@ -7,6 +7,10 @@ var _results: Array[Dictionary] = []
 var _label: Label
 
 func _ready() -> void:
+	var restart_mode := OS.get_environment("BV_COLD_RESTART_MODE")
+	if restart_mode == "WRITE" or restart_mode == "READ":
+		call_deferred("_run_cold_restart_probe", restart_mode)
+		return
 	var slice := load("res://scenes/slice/slice_main.tscn")
 	if slice:
 		add_child(slice.instantiate())
@@ -46,6 +50,7 @@ func _run_checks() -> void:
 	_check_camera_structure()
 	_check_character_presentation_contract()
 	await _check_save_round_trip()
+	_check_save_failure_recovery()
 	_check_gl_compat()
 	_check_d032_cannery()
 	_check_d032_kit()
@@ -59,7 +64,116 @@ func _run_checks() -> void:
 	_check_d032_restore_marker()
 	_check_d032_light_energy_projection()
 	_check_visual_ambient_contract()
+	_check_visual_instanced_material_contract()
 	await _check_motion_grounding()
+
+func _run_cold_restart_probe(mode: String) -> void:
+	var save_path := DataPaths.save_path(CHECK_SLOT)
+	if mode == "WRITE":
+		for path in [save_path, save_path + ".tmp", save_path + ".bak"]:
+			if FileAccess.file_exists(path):
+				DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	var slice_scene := load("res://scenes/slice/slice_main.tscn") as PackedScene
+	var instance: Node = slice_scene.instantiate()
+	if _has_property(instance, "startup_slot"):
+		instance.set("startup_slot", CHECK_SLOT)
+	add_child(instance)
+	var gw := get_tree().get_first_node_in_group("game_world") as GameWorld
+	if gw == null:
+		_finish_cold_restart_probe(false, mode, "GameWorld missing")
+		return
+	if mode == "WRITE":
+		var player := get_tree().get_first_node_in_group("player") as Node3D
+		var human: HumanPresence
+		for node in get_tree().get_nodes_in_group("human_presence"):
+			var candidate := node as HumanPresence
+			if candidate and candidate.presence_id == "presence_01":
+				human = candidate
+				break
+		if player == null or human == null:
+			_finish_cold_restart_probe(false, mode, "player or test presence missing")
+			return
+		gw.world_state.set_channel(WorldStateManager.CHANNEL_AFTERMATH, "COLD_RESTART_SENTINEL")
+		gw.world_state.set_object_flag("cold_restart_fixture", "completed", true)
+		gw.world_state.mark_object(CanneryState.DOOR_ID, "open")
+		gw.world_state.set_object_flag(CanneryState.FUEL_ID, "collect", true)
+		gw.world_state.mark_object(CanneryState.MACHINERY_ID, "restore")
+		gw.world_state.set_awareness("presence_01", {
+			"state": "TRACKING",
+			"last_known_position": [9.0, 0.0, 1.0],
+			"last_known_time": 17.25,
+			"investigation_target": [9.5, 0.0, 1.2],
+			"evidence_source": "SIGHT",
+			"evidence_confidence": 0.8,
+			"suspicion": 0.7,
+		})
+		gw.world_state.record_contact("presence_01", {
+			"occurred": true,
+			"outcome": "FEARFUL",
+			"position": [8.0, 0.0, 5.0],
+			"last_position": [8.0, 0.0, 5.0],
+			"first_hour": 17.25,
+			"last_hour": 17.25,
+			"communicated": true,
+			"withdrew": false,
+		})
+		var player_position := Vector3(4.0, 1.0, 4.0)
+		player.global_position = player_position
+		gw.player_state.position = player_position
+		human.global_position = Vector3(8.0, 0.0, 5.0)
+		gw.time_weather.hour = 17.25
+		gw.world_state.clock_hour = 17.25
+		gw.save_state.save_slot(CHECK_SLOT)
+		var saved := gw.save_state.verify_slot(save_path)
+		_finish_cold_restart_probe(saved, mode, "reserved-slot snapshot %s" % ["verified" if saved else "invalid"])
+		return
+	var player := get_tree().get_first_node_in_group("player") as Node3D
+	var human: HumanPresence
+	for node in get_tree().get_nodes_in_group("human_presence"):
+		var candidate := node as HumanPresence
+		if candidate and candidate.presence_id == "presence_01":
+			human = candidate
+			break
+	var expected_player := Vector3(4.0, 1.0, 4.0)
+	var expected_human := Vector3(8.0, 0.0, 5.0)
+	var duplicate_opening := 0
+	for entry in gw.narrative.log:
+		if str(entry.get("id", "")) in ["beat_strand_awakening", "beat_photograph", "beat_cannery_unsealed"]:
+			duplicate_opening += 1
+	var door_facility_entries := 0
+	var restore_signature_entries := 0
+	for entry in gw.world_state.field_record:
+		if str(entry.get("kind", "")) == "FACILITY" and str(entry.get("subject", "")) == CanneryState.DOOR_ID:
+			door_facility_entries += 1
+		if str(entry.get("kind", "")) == "SIGNATURE" and str(entry.get("subject", "")) == "f1_gyle_cannery" and str(entry.get("detail", "")) == "heat_light":
+			restore_signature_entries += 1
+	var restored: bool = player != null and human != null \
+		and gw.world_state.channel_value(WorldStateManager.CHANNEL_AFTERMATH) == "COLD_RESTART_SENTINEL" \
+		and bool(gw.world_state.object_state("cold_restart_fixture").get("completed", false)) \
+		and gw.player_state.position.distance_to(expected_player) < 0.05 \
+		and player.global_position.distance_to(expected_player) < 0.15 \
+		and human.global_position.distance_to(expected_human) < 0.15 \
+		and is_equal_approx(gw.time_weather.hour, 17.25) \
+		and gw.world_state.awareness_record("presence_01").get("state", "") == "TRACKING" \
+		and gw.contact.state_name_for("presence_01") == "FEARFUL" \
+		and gw.world_state.object_state(CanneryState.DOOR_ID).has("open") \
+		and gw.world_state.object_state(CanneryState.POWER_ID).has("powered") \
+		and gw.world_state.object_state(CanneryState.FUEL_ID).has("consumed") \
+		and gw.world_state.has_seen("beat_cannery_unsealed") \
+		and gw.world_state.has_seen(CanneryState.FIRST_RESTORE_SEEN) \
+		and door_facility_entries == 1 and restore_signature_entries == 1 and duplicate_opening == 0
+	_finish_cold_restart_probe(restored, mode,
+		"world/player/human/awareness/contact/clock restored; first-open=%d restore=%d; opening replay=%d" % [door_facility_entries, restore_signature_entries, duplicate_opening])
+
+func _finish_cold_restart_probe(ok: bool, mode: String, detail: String) -> void:
+	print("COLD RESTART %s [%s]: %s" % [mode, "PASS" if ok else "FAIL", detail])
+	get_tree().quit(0 if ok else 1)
+
+func _has_property(target: Object, property_name: String) -> bool:
+	for property in target.get_property_list():
+		if str(property.get("name", "")) == property_name:
+			return true
+	return false
 
 func _check_boot() -> void:
 	_add("1 project boot", true, "Godot %s" % Engine.get_version_info()["string"])
@@ -205,15 +319,19 @@ func _check_save_round_trip() -> void:
 	var before_world: Dictionary = ws.call("snapshot").duplicate(true)
 	var before_body: Dictionary = ps.snapshot()["body"].duplicate(true)
 	var before_pos: Vector3 = ps.position
+	var before_human: HumanPresence = get_tree().get_first_node_in_group("human_presence") as HumanPresence
+	var before_human_position := before_human.global_position if before_human else Vector3.ZERO
 	save_state.save_slot(CHECK_SLOT)
 	var path := DataPaths.save_path(CHECK_SLOT)
-	if not FileAccess.file_exists(path):
-		_add("9/10 save round trip + persistence", false, "save file not created")
+	if not FileAccess.file_exists(path) or not save_state.verify_slot(path):
+		_add("9/10 save round trip + persistence", false, "save file missing or failed manifest/state verification")
 		return
 	var parse_v: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 	if not (parse_v is Dictionary) or (parse_v as Dictionary).get("manifest", "") != MANIFEST_KEY:
 		_add("9/10 save round trip + persistence", false, "save file manifest invalid")
 		return
+	if before_human:
+		before_human.global_position += Vector3(4.0, 0.0, 0.0)
 	save_state.load_slot(CHECK_SLOT)
 	var after_world: Dictionary = ws.call("snapshot")
 	var after_body: Dictionary = ps.snapshot()["body"]
@@ -224,11 +342,136 @@ func _check_save_round_trip() -> void:
 	await get_tree().process_frame
 	var player := get_tree().get_first_node_in_group("player") as Node3D
 	var relocated := player != null and player.global_position.distance_to(before_pos) < 0.5
-	if values_match and body_match and seed_match and pos_restored and relocated:
-		_add("9/10 save round trip + persistence", true, "readiness is_on_floor in %d physics frames; write->verify->load; world+body+seed+player restored" % ready_frames)
+	var human_relocated := before_human == null or before_human.global_position.distance_to(before_human_position) < 0.01
+	var no_orphan_temp := not FileAccess.file_exists(path + ".tmp")
+	if values_match and body_match and seed_match and pos_restored and relocated and human_relocated and no_orphan_temp:
+		_add("9/10 save round trip + persistence", true, "readiness is_on_floor in %d physics frames; atomic write->verify->load; world+body+seed+player+human position restored; no temp remains" % ready_frames)
 	else:
 		_add("9/10 save round trip + persistence", false,
-			"values=%s body=%s[%s] seed=%s pos=%s relocated=%s" % [values_match, body_match, _body_diff(before_body, after_body), seed_match, pos_restored, relocated])
+			"values=%s body=%s[%s] seed=%s pos=%s player=%s human=%s[before=%s after=%s] no_temp=%s" % [values_match, body_match, _body_diff(before_body, after_body), seed_match, pos_restored, relocated, human_relocated, before_human_position, before_human.global_position if before_human else Vector3.ZERO, no_orphan_temp])
+
+func _check_save_failure_recovery() -> void:
+	var gw := get_tree().get_first_node_in_group("game_world")
+	if gw == null:
+		_add("10 save rejects incomplete state atomically", false, "no GameWorld")
+		return
+	var save_state := gw.get_node_or_null("SaveState") as SaveStateManager
+	var ws := gw.get_node_or_null("WorldState") as WorldStateManager
+	var ps := gw.get_node_or_null("PlayerState") as PlayerStateManager
+	if save_state == null or ws == null or ps == null:
+		_add("10 save rejects incomplete state atomically", false, "save/world/player manager missing")
+		return
+	var path := DataPaths.save_path(CHECK_SLOT)
+	if not FileAccess.file_exists(path):
+		_add("10 save rejects incomplete state atomically", false, "round-trip fixture did not leave a primary save")
+		return
+	var valid_text := FileAccess.get_file_as_string(path)
+	var parsed: Variant = JSON.parse_string(valid_text)
+	if not parsed is Dictionary:
+		_add("10 save rejects incomplete state atomically", false, "round-trip save did not parse")
+		return
+	var bad_manifest: Dictionary = (parsed as Dictionary).duplicate(true)
+	var bad_player: Dictionary = (bad_manifest.get("player", {}) as Dictionary).duplicate(true)
+	bad_player.erase("position")
+	bad_manifest["world"]["facility"] = "CORRUPT_SENTINEL"
+	bad_manifest["player"] = bad_player
+	var invalid_path := ProjectSettings.globalize_path(path)
+	var writer := FileAccess.open(invalid_path, FileAccess.WRITE)
+	if writer == null:
+		_add("10 save rejects incomplete state atomically", false, "cannot create controlled malformed fixture")
+		return
+	writer.store_string(JSON.stringify(bad_manifest))
+	writer.close()
+	var malformed_error := str(save_state.call("_slot_error", path))
+	var before_world: Dictionary = ws.snapshot().duplicate(true)
+	var before_player: Dictionary = ps.snapshot().duplicate(true)
+	var failure := {"reason": ""}
+	save_state.load_failed.connect(func(reason: String): failure["reason"] = reason)
+	var bad_nested: Dictionary = (parsed as Dictionary).duplicate(true)
+	var awareness_records: Dictionary = bad_nested["world"]["awareness_records"]
+	awareness_records["corrupt_fixture"] = {
+		"state": "TRACKING",
+		"last_known_position": ["not-a-coordinate", 0.0, 0.0],
+	}
+	writer = FileAccess.open(invalid_path, FileAccess.WRITE)
+	if writer == null:
+		_add("10 save rejects incomplete state atomically", false, "cannot create nested corruption fixture")
+		return
+	writer.store_string(JSON.stringify(bad_nested))
+	writer.close()
+	var nested_error := str(save_state.call("_slot_error", path))
+	save_state.load_slot(CHECK_SLOT)
+	var nested_mutation_free := ws.snapshot() == before_world and ps.snapshot() == before_player
+	var nested_rejected := str(failure["reason"]) != ""
+	failure["reason"] = ""
+	writer = FileAccess.open(invalid_path, FileAccess.WRITE)
+	if writer == null:
+		_add("10 save rejects incomplete state atomically", false, "cannot restore malformed player fixture")
+		return
+	writer.store_string(JSON.stringify(bad_manifest))
+	writer.close()
+	save_state.load_slot(CHECK_SLOT)
+	var mutation_free := ws.snapshot() == before_world and ps.snapshot() == before_player
+	var rejected := str(failure["reason"]) != ""
+	var temp_path := path + ".tmp"
+	var temp_writer := FileAccess.open(temp_path, FileAccess.WRITE)
+	if temp_writer:
+		temp_writer.store_string("interrupted write")
+		temp_writer.close()
+	writer = FileAccess.open(invalid_path, FileAccess.WRITE)
+	if writer:
+		writer.store_string(valid_text)
+		writer.close()
+	var restored_error := str(save_state.call("_slot_error", path))
+	save_state.load_slot(CHECK_SLOT)
+	var expected_world: Dictionary = ws.snapshot().duplicate(true)
+	var expected_player: Dictionary = ps.snapshot().duplicate(true)
+	ws.set_channel(WorldStateManager.CHANNEL_AFTERMATH, "TEMP_SENTINEL")
+	ps.set_band("INJURY", 0.91)
+	save_state.load_slot(CHECK_SLOT)
+	var temp_ignored := temp_writer != null and FileAccess.file_exists(temp_path) \
+		and _channel_values(expected_world) == _channel_values(ws.snapshot()) \
+		and _body_match(expected_player["body"], ps.snapshot()["body"])
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(temp_path))
+	var backup_path := path + ".bak"
+	var backup_writer := FileAccess.open(backup_path, FileAccess.WRITE)
+	if backup_writer:
+		backup_writer.store_string(valid_text)
+		backup_writer.close()
+	writer = FileAccess.open(invalid_path, FileAccess.WRITE)
+	if writer:
+		writer.store_string("interrupted replacement")
+		writer.close()
+	ws.set_channel(WorldStateManager.CHANNEL_AFTERMATH, "BACKUP_SENTINEL")
+	ps.set_band("INJURY", 0.84)
+	save_state.load_slot(CHECK_SLOT)
+	var backup_recovered := backup_writer != null \
+		and _channel_values(expected_world) == _channel_values(ws.snapshot()) \
+		and _body_match(expected_player["body"], ps.snapshot()["body"])
+	var human := get_tree().get_first_node_in_group("human_presence") as HumanPresence
+	var legacy_human_start := human.global_position if human else Vector3.ZERO
+	var legacy_data: Variant = JSON.parse_string(valid_text)
+	var legacy_writer: FileAccess
+	var legacy_accepted := false
+	var legacy_spawn_restored := false
+	if legacy_data is Dictionary and human != null:
+		(legacy_data as Dictionary)["schema"] = 1
+		((legacy_data as Dictionary)["world"] as Dictionary).erase("presence_records")
+		legacy_writer = FileAccess.open(invalid_path, FileAccess.WRITE)
+		if legacy_writer:
+			legacy_writer.store_string(JSON.stringify(legacy_data))
+			legacy_writer.close()
+			legacy_accepted = save_state.verify_slot(path)
+			human.global_position += Vector3(2.0, 0.0, 0.0)
+			save_state.load_slot(CHECK_SLOT)
+			legacy_spawn_restored = human.global_position.distance_to(legacy_human_start) < 0.01
+	writer = FileAccess.open(invalid_path, FileAccess.WRITE)
+	if writer:
+		writer.store_string(valid_text)
+		writer.close()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(backup_path))
+	_add("10 save rejects incomplete state atomically", nested_rejected and nested_mutation_free and rejected and mutation_free and temp_ignored and backup_recovered and legacy_accepted and legacy_spawn_restored,
+		"nested_rejected=%s nested_error=%s nested_mutation_free=%s rejected=%s reason=%s malformed=%s restored=%s mutation_free=%s interrupted_temp_ignored=%s backup_recovered=%s schema_v1=%s schema_v1_spawn=%s" % [nested_rejected, nested_error, nested_mutation_free, rejected, failure["reason"], malformed_error, restored_error, mutation_free, temp_ignored, backup_recovered, legacy_accepted, legacy_spawn_restored])
 
 func _body_diff(a: Dictionary, b: Dictionary) -> String:
 	var parts: Array[String] = []
@@ -475,6 +718,33 @@ func _check_visual_ambient_contract() -> void:
 		and is_equal_approx(environment.ambient_light_energy, 0.3)
 	_add("22 GL Compatibility ambient contract", ok,
 		"source=%d energy=%.2f" % [environment.ambient_light_source, environment.ambient_light_energy])
+
+func _check_visual_instanced_material_contract() -> void:
+	var region := get_tree().get_first_node_in_group("visual_wilderness_region") as VisualWildernessProof1
+	var vegetation := region.get_node_or_null("Region/Cell_0_0/Dressing/Vegetation") if region else null
+	if vegetation == null:
+		_add("23 wilderness instanced materials", false, "vegetation owner missing")
+		return
+	var expected := {
+		"ConiferCanopies_MultiMesh": Color("#354a3a"),
+		"ConiferTrunks_MultiMesh": Color("#58483a"),
+		"Shrubs_MultiMesh": Color("#536044"),
+		"GroundCover_MultiMesh": Color("#7b8051"),
+		"Deadfall_MultiMesh": Color("#746653"),
+	}
+	var failures: Array[String] = []
+	for node_name in expected:
+		var instance := vegetation.get_node_or_null(node_name) as MultiMeshInstance3D
+		var mesh: Mesh = instance.multimesh.mesh if instance and instance.multimesh else null
+		var material: Material = mesh.surface_get_material(0) if mesh and mesh.get_surface_count() > 0 else null
+		if not material is StandardMaterial3D:
+			failures.append("%s has no standard surface material" % node_name)
+			continue
+		var standard := material as StandardMaterial3D
+		if not standard.albedo_color.is_equal_approx(expected[node_name]) or standard.roughness < 0.7:
+			failures.append("%s material does not match its muted matte palette" % node_name)
+	_add("23 wilderness instanced materials", failures.is_empty(),
+		"five vegetation/deadfall batches use distinct, matte authored colors; failures=%s" % [failures])
 
 func _check_motion_grounding() -> void:
 	var player := get_tree().get_first_node_in_group("player") as CharacterBody3D

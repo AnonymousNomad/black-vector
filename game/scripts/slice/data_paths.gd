@@ -1,7 +1,7 @@
 class_name DataPaths
 extends RefCounted
 
-const SAVE_SCHEMA_VERSION := 1
+const SAVE_SCHEMA_VERSION := 2
 const SAVE_DIR := "user://saves/slice"
 const SETTINGS_PATH := "user://settings/slice_settings.cfg"
 const FIXTURE_RECORD_DIR := "res://data/fixture"

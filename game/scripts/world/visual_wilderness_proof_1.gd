@@ -287,7 +287,9 @@ func _build_cannery_landmark() -> void:
 	sign.rotation_degrees = Vector3(0, 180, 0)
 	dressing.add_child(sign)
 
-func _multi_mesh_instance(parent: Node, name: String, mesh: Mesh, transforms: Array[Transform3D], distance: float) -> MultiMeshInstance3D:
+func _multi_mesh_instance(parent: Node, name: String, mesh: Mesh, transforms: Array[Transform3D], distance: float, material: Material) -> MultiMeshInstance3D:
+	if mesh.get_surface_count() > 0:
+		mesh.surface_set_material(0, material)
 	var multimesh := MultiMesh.new()
 	multimesh.transform_format = MultiMesh.TRANSFORM_3D
 	multimesh.mesh = mesh
@@ -329,9 +331,9 @@ func _build_vegetation() -> void:
 		tree_transforms.append(tree_transform)
 		trunk_transforms.append(Transform3D(Basis.IDENTITY.scaled(Vector3(scale, scale, scale)), Vector3(x, height + 1.1 * scale, z)))
 	var cone := _cylinder_mesh(0.05, 1.15, 5.8, 8)
-	_multi_mesh_instance(parent, "ConiferCanopies_MultiMesh", cone, tree_transforms, float(settings["distance"]))
+	_multi_mesh_instance(parent, "ConiferCanopies_MultiMesh", cone, tree_transforms, float(settings["distance"]), _material(Color("#354a3a"), 0.92))
 	var trunk := _cylinder_mesh(0.16, 0.22, 2.2, 7)
-	_multi_mesh_instance(parent, "ConiferTrunks_MultiMesh", trunk, trunk_transforms, float(settings["distance"]))
+	_multi_mesh_instance(parent, "ConiferTrunks_MultiMesh", trunk, trunk_transforms, float(settings["distance"]), _material(Color("#58483a"), 0.96))
 
 	var shrub_transforms: Array[Transform3D] = []
 	for _i in range(int(settings["shrubs"])):
@@ -346,7 +348,7 @@ func _build_vegetation() -> void:
 	shrub_mesh.height = 1.0
 	shrub_mesh.radial_segments = 8
 	shrub_mesh.rings = 4
-	_multi_mesh_instance(parent, "Shrubs_MultiMesh", shrub_mesh, shrub_transforms, float(settings["distance"]) * 0.85)
+	_multi_mesh_instance(parent, "Shrubs_MultiMesh", shrub_mesh, shrub_transforms, float(settings["distance"]) * 0.85, _material(Color("#536044"), 0.95))
 
 	var grass_transforms: Array[Transform3D] = []
 	for _i in range(int(settings["grass"])):
@@ -357,7 +359,7 @@ func _build_vegetation() -> void:
 		var scale := _rng.randf_range(0.5, 1.4)
 		grass_transforms.append(Transform3D(Basis.IDENTITY.scaled(Vector3(scale, scale, scale)), Vector3(x, _terrain_height(x, z) + 0.18 * scale, z)))
 	var grass_mesh := _cylinder_mesh(0.02, 0.12, 0.36, 5)
-	_multi_mesh_instance(parent, "GroundCover_MultiMesh", grass_mesh, grass_transforms, float(settings["distance"]) * 0.72)
+	_multi_mesh_instance(parent, "GroundCover_MultiMesh", grass_mesh, grass_transforms, float(settings["distance"]) * 0.72, _material(Color("#7b8051"), 0.96))
 
 	var deadfall_transforms: Array[Transform3D] = []
 	for _i in range(int(settings["deadfall"])):
@@ -369,7 +371,7 @@ func _build_vegetation() -> void:
 		var basis := Basis(Vector3(0, 0, 1), _rng.randf_range(-0.45, 0.45)).scaled(Vector3(scale, scale, scale))
 		deadfall_transforms.append(Transform3D(basis, Vector3(x, _terrain_height(x, z) + 0.22, z)))
 	var deadfall_mesh := _cylinder_mesh(0.16, 0.2, 3.0, 7)
-	_multi_mesh_instance(parent, "Deadfall_MultiMesh", deadfall_mesh, deadfall_transforms, float(settings["distance"]) * 0.9)
+	_multi_mesh_instance(parent, "Deadfall_MultiMesh", deadfall_mesh, deadfall_transforms, float(settings["distance"]) * 0.9, _material(Color("#746653"), 0.95))
 
 func debug_line() -> String:
 	return "VISUAL: %s | cell=250m envelope=500x250 | terrain=%.0fm2 | elevation=5m | vegetation=%d | water=%s" % [presentation_profile, _terrain_area, _vegetation_count, "creek" if _water_present else "none"]

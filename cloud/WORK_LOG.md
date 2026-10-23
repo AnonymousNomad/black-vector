@@ -73,10 +73,28 @@ Decision: park only C1 production-asset generation/admission. Classify it as **`
 
 Added an opt-in schedule-driven routine component for human presences. `HumanRoutineStop` supports day and overnight hour windows plus IDLE, WORK, and INSPECT behavior; the presence actor travels to the active stop, completes its configured dwell, handles a short conversation hook, and idles outside authored hours. `GameWorld` yields routine movement to `HumanAwareness` while a human is suspicious or investigating. No schedule was assigned to the canonical F1 survivor, so normal-play content does not invent a new patrol or contradict the first-contact beat. This is systems foundation, not C3 acceptance.
 
+Verification: focused routine physics fixture **PASS** (travel, WORK/INSPECT schedule changes, overnight schedule, conversation pause/resumption, and off-shift idle); foundation harness **24/24**; static verifier **39/39**; strict Godot editor parse gate passed; `git diff --check` clean. Four existing ObjectDB shutdown leak warnings remain. No routine schedule is yet authored into the playable slice; C3 remains PARTIAL.
+
 ### BV-C1 asset-independent character contract — partial
 
 Added a tested `CharacterPresentationContract` alongside the movement-authoritative player body. It defines named equipment attachment points, clothing slots, injury regions, turn/interaction/recoil/hurt/combat-stance action hooks, and the camera/collision relationship. The procedural character explicitly reports `ENGINEERING_PROXY`; there is no production Corley tag or visual acceptance claim. The contract carries requests and state for a future animation/rig adapter; it does not add final rig, cloth, mesh, or animation assets.
 
-Verification: focused routine physics fixture **PASS** (travel, WORK/INSPECT schedule changes, overnight schedule, conversation pause/resumption, and off-shift idle); foundation harness **24/24**; static verifier **39/39**; strict Godot editor parse gate passed; `git diff --check` clean. Four existing ObjectDB shutdown leak warnings remain. No routine schedule is yet authored into the playable slice; C3 remains PARTIAL.
+Verification: foundation harness **24/24** includes proxy labeling, attachment lookup, turn/interact/recoil/hurt/combat hooks, clothing/injury state, and camera/collision relationship; no `production_corley` representation is present. Production rig and visual evaluation remain blocked.
 
-Next: continue C2–C13 and return to production Corley asset closure when the approved `game-dev` workflow is available.
+### BV-C2 — visual-world material correction — partial
+
+The normal-play capture showed that the deterministic, batched vegetation meshes were using default white materials. Added distinct matte conifer, bark, shrub, ground-cover, and deadfall materials plus a runtime material-contract check. Captured the corrected world at [`cloud/evidence/bv-c2/normal-play-vegetation-materials-1280x720.png`](evidence/bv-c2/normal-play-vegetation-materials-1280x720.png), SHA-256 `9fd56c91b7b2a5bf56c9481a2659fd34d4fa879d3e7784c0580309514a99f695`.
+
+Verification: material-contract test changed from five missing-surface failures to pass; foundation harness **26/26**; static verifier **39/39**. The capture still shows a procedural character, blockout props, and a visually disconnected flat Strand floor. This is a bounded correction, not C2 visual acceptance; C1 and C2 remain P0 production gaps.
+
+### BV-C10 — persistence and recovery — complete for the tested slice
+
+Moved saves to schema 2 with a flushed temporary write, full candidate validation, atomic rename, and backup recovery. Before mutation, load validation checks nested world, player, equipment, awareness, contact, and human-presence record shapes, including finite numeric vectors. Schema-1 saves remain loadable; legacy presence records reset to authored placement. Saves include world clock and per-human position/activity/routine state. A valid slot now resumes during startup before the authored opening beats, preventing previously seen thoughts or the cannery's one-shot opening/power-restoration consequences from firing again.
+
+Verification: foundation harness **26/26**; malformed nested awareness data is rejected without mutation; interrupted-temp isolation, valid-backup recovery, and schema-1 compatibility pass. A separate-process cold-restart probe writes a save, starts a fresh Godot process, then confirms player/human position, world state, awareness/contact, clock, and the one-time door/power effects restore once with **zero opening replay**. Routine physics fixture **PASS**; static verifier **39/39**; methodology validator **PASS**; Godot editor scan passed; `git diff --check` clean. Four existing ObjectDB shutdown leak warnings remain. C10 is complete for the tested slice; physical Android persistence remains untested.
+
+### Cloud workflow setup — prepared, publication pending
+
+Verified the official Godot 4.7.2 Linux archive against the SHA-512 recorded in `cloud/RECONCILIATION.md`, saved an idempotent installer and startup workflow in the cloud environment draft, and updated repository test instructions. The methodology checker now resolves the checkout root from its own path. The current environment passes its documented setup checks. The draft is saved but still requires the user to review and publish it in environment settings.
+
+Next: continue the remaining C2–C13 work independent of the asset blocker, beginning with perception/evidence/combat audits and Android artifact feasibility. Return to production Corley asset closure when the approved `game-dev` workflow becomes available. Physical Android remains `PHYSICAL_ANDROID_NOT_TESTED`.
