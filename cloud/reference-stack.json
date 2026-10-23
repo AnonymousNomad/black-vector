@@ -1,0 +1,54 @@
+{
+  "schema": "black-vector-cloud-reference-stack/1",
+  "recorded": "2026-10-22",
+  "black_vector": {
+    "repository": "AnonymousNomad/black-vector",
+    "cloud_branch": "cloud-handoff-black-vector",
+    "branch_base": "ebdeb7abf10cdeb67b1365e12f98319d8a71ab65",
+    "known_local_candidate": "1292c67",
+    "known_local_candidate_in_github": false,
+    "note": "Cloud branch inherits the newest GitHub visual-wilderness source. Reconcile cloud/KNOWN_LOCAL_DELTA.md before calling source current."
+  },
+  "repositories": [
+    {
+      "name": "Covert Coder architecture / verification discipline",
+      "repo": "AnonymousNomad/covert-coder",
+      "revision": "81aff88b924db05c689dc734aa3e67605f4b18ce",
+      "mode": "read-only-reference"
+    },
+    {
+      "name": "GhostCode adversarial verification reference",
+      "repo": "AnonymousNomad/Ghostcode",
+      "revision": "213b7f5086664d5e8d8be3583c45acad502341b6",
+      "mode": "read-only-reference"
+    },
+    {
+      "name": "Cyber SOP harness patterns",
+      "repo": "AnonymousNomad/cyber-sop-harness",
+      "revision": "23e643d1013ea3e294356913af6a848149739421",
+      "mode": "read-only-reference"
+    },
+    {
+      "name": "External qualification methodology",
+      "repo": "AnonymousNomad/covert-external-qualification-lab",
+      "revision": "b943df8c2167bd404d7c258df5b695a5defb501f",
+      "mode": "read-only-reference"
+    }
+  ],
+  "project_native_harness": [
+    "doctrine/",
+    "sop/",
+    "skills/",
+    ".opencode/",
+    "tests/",
+    "tools/",
+    "docs/methodology/",
+    "docs/verification/"
+  ],
+  "authority": {
+    "merge_main": false,
+    "external_publish": false,
+    "device_claim_without_device": false,
+    "ambiguous_license_assets": false
+  }
+}
