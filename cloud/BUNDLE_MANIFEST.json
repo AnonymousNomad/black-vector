@@ -1,0 +1,60 @@
+{
+  "schema": "black-vector-cloud-bundle/1",
+  "created": "2026-10-22",
+  "repository": "AnonymousNomad/black-vector",
+  "branch": "cloud-handoff-black-vector",
+  "branch_base": "ebdeb7abf10cdeb67b1365e12f98319d8a71ab65",
+  "known_local_candidate": "1292c67",
+  "known_local_candidate_in_github": false,
+  "inherited": [
+    "game/",
+    "doctrine/",
+    "sop/",
+    "skills/",
+    ".opencode/",
+    "tests/",
+    "tools/",
+    "docs/"
+  ],
+  "cloud_files": [
+    "cloud/START_HERE.md",
+    "cloud/KNOWN_LOCAL_DELTA.md",
+    "cloud/COVERT_HARNESS_CONTRACT.md",
+    "cloud/AUTONOMOUS_EXECUTION.md",
+    "cloud/VISUAL_QUALITY_BAR.md",
+    "cloud/FINAL_ACCEPTANCE.md",
+    "cloud/reference-stack.json",
+    "cloud/harness/mission_queue.json",
+    "cloud/PROJECT_MAP.md",
+    "cloud/VISUAL_REFERENCE_INDEX.md",
+    "cloud/CLOUD_DIRECTIVE.md",
+    "cloud/WORK_LOG.md",
+    "cloud/FINAL_RECEIPT.md",
+    "cloud/archive/SESSION_RECOVERY_HANDOFF_2026-10-17.md",
+    "cloud/archive/AUTONOMOUS_PRODUCTION_PROGRAM_V6.md"
+  ],
+  "covert_references": {
+    "AnonymousNomad/covert-coder": "81aff88b924db05c689dc734aa3e67605f4b18ce",
+    "AnonymousNomad/Ghostcode": "213b7f5086664d5e8d8be3583c45acad502341b6",
+    "AnonymousNomad/cyber-sop-harness": "23e643d1013ea3e294356913af6a848149739421",
+    "AnonymousNomad/covert-external-qualification-lab": "b943df8c2167bd404d7c258df5b695a5defb501f"
+  },
+  "not_embedded": [
+    {
+      "item": "exact laptop-local 1292c67 source bytes",
+      "reason": "commit is not present in GitHub and authorized workstation bridge is quota-blocked",
+      "recovery": "cloud/KNOWN_LOCAL_DELTA.md"
+    },
+    {
+      "item": "three external/library visual-reference PNG binaries",
+      "reason": "project files bridge exposed image asset pointers but not raw binary bytes for GitHub object upload",
+      "recovery": "cloud/VISUAL_REFERENCE_INDEX.md"
+    }
+  ],
+  "start": "Read cloud/START_HERE.md then execute cloud/CLOUD_DIRECTIVE.md",
+  "policy": {
+    "merge_main": false,
+    "external_publish": false,
+    "physical_device_claim_without_device": false
+  }
+}
