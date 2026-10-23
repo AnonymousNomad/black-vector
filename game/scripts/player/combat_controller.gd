@@ -18,6 +18,10 @@ const RAGE_STAMINA_REGEN := 0.4
 const HIT_HOST_DROP := 0.1
 const POSTURE_BROKEN_DROP := 0.06
 const FAILED_TIMING_DROP := 0.09
+const HIT_INJURY_GAIN := 0.14
+const HIT_EXERTION_GAIN := 0.10
+const FAILED_TIMING_EXERTION_GAIN := 0.06
+const POSTURE_BROKEN_EXERTION_GAIN := 0.08
 const PRESSURE_DRAIN := 0.015
 const CORNERED_DRAIN := 0.03
 
@@ -297,9 +301,23 @@ func update_control(delta: float) -> void:
 func host_event(kind: String, drop: float) -> void:
 	_recent_event_timer = 0.5
 	control = maxf(0.0, control - drop)
+	_apply_physiology_event(kind)
 	log_change("host_event", kind)
 	if not rage and control <= RAGE_ENTER:
 		enter_rage(kind)
+
+func _apply_physiology_event(kind: String) -> void:
+	var player_state := get_tree().get_first_node_in_group("player_state") as PlayerStateManager
+	if player_state == null:
+		return
+	match kind:
+		"hit_taken":
+			player_state.set_band("INJURY", player_state.band("INJURY") + HIT_INJURY_GAIN)
+			player_state.set_band("EXERTION", player_state.band("EXERTION") + HIT_EXERTION_GAIN)
+		"failed_defensive_timing":
+			player_state.set_band("EXERTION", player_state.band("EXERTION") + FAILED_TIMING_EXERTION_GAIN)
+		"posture_broken":
+			player_state.set_band("EXERTION", player_state.band("EXERTION") + POSTURE_BROKEN_EXERTION_GAIN)
 
 func enter_rage(kind: String) -> void:
 	rage = true

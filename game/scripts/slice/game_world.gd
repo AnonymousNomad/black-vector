@@ -289,7 +289,16 @@ func _record_move_trace(player: CharacterBody3D, delta: float) -> void:
 	world_state.record_trace("FOOTPRINT", player.global_position, _player_signature.trace_intensity(), "")
 
 func _on_noise_event(origin: Vector3, volume: float, kind: String) -> void:
-	world_state.record_trace("SOUND", origin, volume, kind)
+	var audio_source := get_tree().get_first_node_in_group("wilderness_audio")
+	var surface := "SOIL"
+	var water_masked := false
+	if audio_source != null:
+		if audio_source.has_method("surface_at"):
+			surface = str(audio_source.call("surface_at", origin))
+		if audio_source.has_method("water_masks_noise_at"):
+			water_masked = bool(audio_source.call("water_masks_noise_at", origin))
+	world_state.record_trace("SOUND", origin, volume,
+		"kind=%s;surface=%s;water=%s" % [kind, surface, str(water_masked)])
 
 func _record_route_traversal(player: CharacterBody3D) -> void:
 	if tactical == null:

@@ -56,15 +56,22 @@ func _run_checks() -> void:
 	_check_d032_kit()
 	_check_d032_narrative()
 	_check_d032_presence()
+	_check_f1_routine_contract()
 	_check_d032_firearm_absent()
 	_check_d032_power()
 	_check_d032_dependency()
+	await _check_f1_route_choices()
 	_check_d032_heat_off()
 	_check_d032_deepgate()
 	_check_d032_restore_marker()
 	_check_d032_light_energy_projection()
 	_check_visual_ambient_contract()
 	_check_visual_instanced_material_contract()
+	_check_terrain_surface_normals()
+	_check_mobile_world_quality_profiles()
+	_check_perception_integration_contract()
+	_check_evidence_identity_persistence()
+	_check_combat_physiology_contract()
 	await _check_motion_grounding()
 
 func _run_cold_restart_probe(mode: String) -> void:
@@ -98,6 +105,10 @@ func _run_cold_restart_probe(mode: String) -> void:
 		gw.world_state.mark_object(CanneryState.DOOR_ID, "open")
 		gw.world_state.set_object_flag(CanneryState.FUEL_ID, "collect", true)
 		gw.world_state.mark_object(CanneryState.MACHINERY_ID, "restore")
+		var persisted_trace_a := gw.world_state.record_trace("SOUND", Vector3(2.0, 0.0, 2.0), 0.4, "kind=FOOTSTEP;surface=SOIL")
+		var persisted_trace_b := gw.world_state.record_trace("SOUND", Vector3(2.0, 0.0, 2.0), 0.4, "kind=FOOTSTEP;surface=SOIL")
+		var trace_id_a := str(persisted_trace_a.get("id", ""))
+		var trace_id_b := str(persisted_trace_b.get("id", ""))
 		gw.world_state.set_awareness("presence_01", {
 			"state": "TRACKING",
 			"last_known_position": [9.0, 0.0, 1.0],
@@ -105,6 +116,10 @@ func _run_cold_restart_probe(mode: String) -> void:
 			"investigation_target": [9.5, 0.0, 1.2],
 			"evidence_source": "SIGHT",
 			"evidence_confidence": 0.8,
+			"identity_confidence": 0.0,
+			"believed_identity": "UNKNOWN",
+			"evidence_count": 2,
+			"processed_traces": [trace_id_a, trace_id_b],
 			"suspicion": 0.7,
 		})
 		gw.world_state.record_contact("presence_01", {
@@ -120,6 +135,9 @@ func _run_cold_restart_probe(mode: String) -> void:
 		var player_position := Vector3(4.0, 1.0, 4.0)
 		player.global_position = player_position
 		gw.player_state.position = player_position
+		var combat := player.get_node_or_null("CombatController")
+		if combat != null:
+			combat.call("host_event", "hit_taken", 0.1)
 		human.global_position = Vector3(8.0, 0.0, 5.0)
 		gw.time_weather.hour = 17.25
 		gw.world_state.clock_hour = 17.25
@@ -147,6 +165,18 @@ func _run_cold_restart_probe(mode: String) -> void:
 			door_facility_entries += 1
 		if str(entry.get("kind", "")) == "SIGNATURE" and str(entry.get("subject", "")) == "f1_gyle_cannery" and str(entry.get("detail", "")) == "heat_light":
 			restore_signature_entries += 1
+	var restored_awareness := gw.world_state.awareness_record("presence_01")
+	var processed_traces: Array = restored_awareness.get("processed_traces", [])
+	var restored_trace_ids: Array[String] = []
+	for trace in gw.world_state.traces:
+		var trace_id := str(trace.get("id", ""))
+		if processed_traces.has(trace_id) and not restored_trace_ids.has(trace_id):
+			restored_trace_ids.append(trace_id)
+	var memory_restored := str(restored_awareness.get("believed_identity", "")) == "UNKNOWN" \
+		and is_zero_approx(float(restored_awareness.get("identity_confidence", -1.0))) \
+		and int(restored_awareness.get("evidence_count", -1)) == 2 and restored_trace_ids.size() == 2
+	var injury_restored := is_equal_approx(gw.player_state.band("INJURY"), 0.14) \
+		and is_equal_approx(gw.player_state.band("EXERTION"), 0.1)
 	var restored: bool = player != null and human != null \
 		and gw.world_state.channel_value(WorldStateManager.CHANNEL_AFTERMATH) == "COLD_RESTART_SENTINEL" \
 		and bool(gw.world_state.object_state("cold_restart_fixture").get("completed", false)) \
@@ -161,9 +191,10 @@ func _run_cold_restart_probe(mode: String) -> void:
 		and gw.world_state.object_state(CanneryState.FUEL_ID).has("consumed") \
 		and gw.world_state.has_seen("beat_cannery_unsealed") \
 		and gw.world_state.has_seen(CanneryState.FIRST_RESTORE_SEEN) \
+		and memory_restored and injury_restored \
 		and door_facility_entries == 1 and restore_signature_entries == 1 and duplicate_opening == 0
 	_finish_cold_restart_probe(restored, mode,
-		"world/player/human/awareness/contact/clock restored; first-open=%d restore=%d; opening replay=%d" % [door_facility_entries, restore_signature_entries, duplicate_opening])
+		"world/player/human/awareness/contact/clock/evidence/injury restored=%s/%s; first-open=%d restore=%d; opening replay=%d" % [memory_restored, injury_restored, door_facility_entries, restore_signature_entries, duplicate_opening])
 
 func _finish_cold_restart_probe(ok: bool, mode: String, detail: String) -> void:
 	print("COLD RESTART %s [%s]: %s" % [mode, "PASS" if ok else "FAIL", detail])
@@ -581,6 +612,33 @@ func _check_d032_presence() -> void:
 	else:
 		_add("14 D032 presence_f1", false, "presence_f1 not found")
 
+func _check_f1_routine_contract() -> void:
+	var presence: HumanPresence
+	for node in get_tree().get_nodes_in_group("human_presence"):
+		var candidate := node as HumanPresence
+		if candidate != null and candidate.presence_id == "presence_f1":
+			presence = candidate
+			break
+	if presence == null:
+		_add("14b F1 authored routine", false, "presence_f1 missing")
+		return
+	var work_and_inspect := presence.routine_stops.size() == 2
+	var schedule_ok := false
+	if work_and_inspect:
+		var work := presence.routine_stops[0]
+		var inspect := presence.routine_stops[1]
+		work_and_inspect = work != null and inspect != null \
+			and work.activity == "WORK" and inspect.activity == "INSPECT" \
+			and work.active_at(9.0) and inspect.active_at(15.0) \
+			and not work.active_at(15.0) and not inspect.active_at(20.0)
+		schedule_ok = presence.active_routine_index(9.0) == 0 \
+			and presence.active_routine_index(15.0) == 1 and presence.active_routine_index(20.0) == -1
+	var ok := presence.routine_enabled and work_and_inspect and schedule_ok \
+		and presence.presence_id == "presence_f1" and presence.threat_level == "UNKNOWN"
+	_add("14b F1 authored routine", ok,
+		"enabled=%s work_inspect=%s schedule=%s identity=%s threat=%s" % [
+			presence.routine_enabled, work_and_inspect, schedule_ok, presence.presence_id, presence.threat_level])
+
 func _scan_scripts_for(banned: Array[String]) -> Array[String]:
 	var hits: Array[String] = []
 	var dir := DirAccess.open("res://scripts")
@@ -649,6 +707,135 @@ func _check_d032_dependency() -> void:
 	_add("17 D032 S-3 dependency", ok,
 		"machinery object_id=%s fuel_collected=%s inspect=%s restore=%s" % [
 			str(mach.get("object_id")), fuel_collected, mach.is_in_group("context_inspect"), mach.is_in_group("context_restore")])
+
+func _check_f1_route_choices() -> void:
+	var game_world := get_tree().get_first_node_in_group("game_world") as GameWorld
+	var player := get_tree().get_first_node_in_group("player") as CharacterBody3D
+	var cover := game_world.get_node_or_null("GyleCannery/ApproachCoverF1") as Node3D if game_world else null
+	var fuel := game_world.get_node_or_null("GyleCannery/ApproachCrate") as Node3D if game_world else null
+	var human: HumanPresence
+	for candidate in get_tree().get_nodes_in_group("human_presence"):
+		if candidate is HumanPresence and candidate.presence_id == "presence_f1":
+			human = candidate
+			break
+	var awareness := human.get_node_or_null("Awareness") as HumanAwareness if human else null
+	var vision := human.get_node_or_null("VisionSensor") as VisionSensor if human else null
+	var door := game_world.get_node_or_null("GyleCannery/EntryDoor") as StaticBody3D if game_world else null
+	if game_world == null or player == null or cover == null or fuel == null or human == null \
+			or awareness == null or vision == null or door == null:
+		_add("17b F1 route consequences", false, "F1 cover, fuel, presence, vision, door, player, or GameWorld missing")
+		return
+	var cover_floor := Vector3(cover.global_position.x, 0.0, cover.global_position.z)
+	var fuel_floor := Vector3(fuel.global_position.x, 0.0, fuel.global_position.z)
+	var concealed_start := cover_floor
+	var concealed_end := fuel_floor
+	var open_start := cover_floor + Vector3(10.0, 0.0, -8.0)
+	var open_end := fuel_floor + Vector3(0.0, 0.0, 3.0)
+	var concealed_route: Dictionary = game_world.tactical.assess_route(player, concealed_start, concealed_end)
+	var open_route: Dictionary = game_world.tactical.assess_route(player, open_start, open_end)
+	var records := WorldStateManager.new()
+	add_child(records)
+	var concealed_record: Dictionary = records.record_route(concealed_start, concealed_end,
+		str(concealed_route.get("classification", "")), float(concealed_route.get("disturbance_risk", 1.0)))
+	var open_record: Dictionary = records.record_route(open_start, open_end,
+		str(open_route.get("classification", "")), float(open_route.get("disturbance_risk", 1.0)))
+	var world_snapshot: Dictionary = game_world.world_state.snapshot()
+	var player_snapshot: Dictionary = game_world.player_state.snapshot()
+	var human_snapshot: Dictionary = human.snapshot()
+	var awareness_snapshot: Dictionary = awareness.snapshot()
+	var awareness_runtime := {
+		"sight_time": awareness.get("_sight_time"),
+		"contact_clock": awareness.get("_contact_clock"),
+		"lose_time": awareness.get("_lose_time"),
+		"discovery_clock": awareness.get("_discovery_clock"),
+		"mirror_clock": awareness.get("_mirror_clock"),
+		"inspect_time": awareness.get("_inspect_time"),
+		"samples": awareness.get("_samples").duplicate(),
+	}
+	var player_transform := player.global_transform
+	var player_velocity := player.velocity
+	var player_routine_was_enabled := human.routine_enabled
+	var clock_hour := game_world.time_weather.hour
+	var previous_weather := game_world.world_state.channel_value(WorldStateManager.CHANNEL_WEATHER)
+	var route_anchor: Vector3 = game_world.get("_route_anchor")
+	var route_anchor_valid := bool(game_world.get("_route_anchor_valid"))
+	human.routine_enabled = false
+	var door_mesh := door.get_node_or_null("MeshInstance3D") as MeshInstance3D
+	door.collision_layer = 0
+	if door_mesh:
+		door_mesh.visible = false
+	var covered_point := Vector3(cover.global_position.x - 1.0, 0.0, cover.global_position.z)
+	var exposed_point := door.global_position + Vector3(0.6, -door.global_position.y, 0.0)
+	var covered_score := 0.0
+	var exposed_score := 0.0
+	var covered_detected := false
+	var exposed_detected := false
+	var covered_state := "UNKNOWN"
+	var exposed_state := "UNKNOWN"
+	for route_name in ["covered", "exposed"]:
+		var point := covered_point if route_name == "covered" else exposed_point
+		player.global_position = point
+		player.velocity = Vector3.ZERO
+		human.look_at(Vector3(point.x, human.global_position.y, point.z), Vector3.UP)
+		for _frame in range(2):
+			await get_tree().process_frame
+			await get_tree().physics_frame
+		player.velocity = Vector3(5.0, 0.0, 0.0)
+		vision.set("_lit_valid", false)
+		vision.set("_throttle", 0.0)
+		var route_sight: Dictionary = awareness.call("_sense_player", player)
+		var score := float(route_sight.get("score", 0.0))
+		var detected := bool(route_sight.get("visible", false)) and score >= HumanAwareness.SIGHT_THRESHOLD
+		awareness.restore_from({"state": "UNAWARE", "suspicion": 0.0})
+		awareness.set("_sight_time", 0.0)
+		awareness.set("_contact_clock", 999.0)
+		game_world.world_state.traces.clear()
+		awareness.update(1.5, player)
+		if route_name == "exposed" and awareness.state == HumanAwareness.State.SUSPICIOUS:
+			awareness.update(0.05, player)
+		if route_name == "covered":
+			covered_detected = detected
+			covered_score = score
+			covered_state = awareness.state_name()
+		else:
+			exposed_detected = detected
+			exposed_score = score
+			exposed_state = awareness.state_name()
+	game_world.world_state.restore(world_snapshot)
+	game_world.time_weather.restore_clock(clock_hour, previous_weather)
+	game_world.world_state.clock_hour = clock_hour
+	game_world.player_state.restore(player_snapshot)
+	game_world.cannery.apply_all()
+	player.global_transform = player_transform
+	player.velocity = player_velocity
+	human.restore_from(human_snapshot)
+	human.routine_enabled = player_routine_was_enabled
+	awareness.restore_from(awareness_snapshot)
+	awareness.set("_sight_time", awareness_runtime["sight_time"])
+	awareness.set("_contact_clock", awareness_runtime["contact_clock"])
+	awareness.set("_lose_time", awareness_runtime["lose_time"])
+	awareness.set("_discovery_clock", awareness_runtime["discovery_clock"])
+	awareness.set("_mirror_clock", awareness_runtime["mirror_clock"])
+	awareness.set("_inspect_time", awareness_runtime["inspect_time"])
+	awareness.set("_samples", awareness_runtime["samples"])
+	game_world.set("_route_anchor", route_anchor)
+	game_world.set("_route_anchor_valid", route_anchor_valid)
+	await get_tree().physics_frame
+	var routes_differ := str(concealed_record.get("classification", "")) == "CONCEALED_APPROACH" \
+		and str(open_record.get("classification", "")) != str(concealed_record.get("classification", "")) \
+		and float(concealed_record.get("disturbance_risk", 1.0)) < float(open_record.get("disturbance_risk", 0.0)) \
+		and records.routes.size() == 2 and cover.is_in_group("context_conceal") \
+		and not covered_detected and exposed_detected \
+		and covered_state == "UNAWARE" and exposed_state != "UNAWARE"
+	var fuel_gate_preserved := not game_world.world_state.object_state(CanneryState.FUEL_ID).has("collect") \
+		and not game_world.cannery.is_powered()
+	_add("17b F1 route consequences", routes_differ and fuel_gate_preserved,
+		"concealed=%s/%.2f open=%s/%.2f route_records=%d cover_affordance=%s npc_detection=covered:%s/open:%s scores=%.2f/%.2f awareness=%s/%s fuel_gate=%s" % [
+			concealed_record.get("classification", ""), concealed_record.get("disturbance_risk", 1.0),
+			open_record.get("classification", ""), open_record.get("disturbance_risk", 1.0),
+			records.routes.size(), cover.is_in_group("context_conceal"), covered_detected,
+			exposed_detected, covered_score, exposed_score, covered_state, exposed_state, fuel_gate_preserved])
+	records.free()
 
 func _check_d032_heat_off() -> void:
 	var cannery := _d032_cannery_root()
@@ -745,6 +932,223 @@ func _check_visual_instanced_material_contract() -> void:
 			failures.append("%s material does not match its muted matte palette" % node_name)
 	_add("23 wilderness instanced materials", failures.is_empty(),
 		"five vegetation/deadfall batches use distinct, matte authored colors; failures=%s" % [failures])
+
+func _check_terrain_surface_normals() -> void:
+	var region := get_tree().get_first_node_in_group("visual_wilderness_region") as VisualWildernessProof1
+	var terrain_mesh := region.get_node_or_null("Region/Cell_0_0/Terrain/TerrainBase/TerrainMesh") as MeshInstance3D if region else null
+	var array_mesh := terrain_mesh.mesh as ArrayMesh if terrain_mesh else null
+	var arrays: Array = array_mesh.surface_get_arrays(0) if array_mesh and array_mesh.get_surface_count() > 0 else []
+	var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL] if arrays.size() > Mesh.ARRAY_NORMAL and arrays[Mesh.ARRAY_NORMAL] is PackedVector3Array else PackedVector3Array()
+	var vertex_index := 14 * 37 + 22
+	var vertex_normal := normals[vertex_index] if normals.size() > vertex_index else Vector3.UP
+	var analytic_normal := Vector3.UP
+	var contract_available := region != null and region.has_method("terrain_normal")
+	if contract_available:
+		analytic_normal = region.call("terrain_normal", 40.0, 15.0)
+	var ok := contract_available and normals.size() == 37 * 23 \
+		and vertex_normal.y < 0.99 and vertex_normal.distance_to(analytic_normal) < 0.02 \
+		and is_equal_approx(analytic_normal.length(), 1.0)
+	_add("23b terrain slope normals", ok,
+		"normal_count=%d vertex=%s analytic=%s" % [normals.size(), vertex_normal, analytic_normal])
+
+func _check_mobile_world_quality_profiles() -> void:
+	var region := get_tree().get_first_node_in_group("visual_wilderness_region") as VisualWildernessProof1
+	if region == null or not region.has_method("_profile_settings"):
+		_add("23c mobile world quality tiers", false, "visual world profile contract missing")
+		return
+	var original_profile := region.presentation_profile
+	region.presentation_profile = "PERFORMANCE"
+	var performance: Dictionary = region.call("_profile_settings")
+	region.presentation_profile = "BALANCED"
+	var balanced: Dictionary = region.call("_profile_settings")
+	region.presentation_profile = "QUALITY"
+	var quality: Dictionary = region.call("_profile_settings")
+	region.presentation_profile = original_profile
+	var ordered := true
+	for key in ["trees", "shrubs", "grass", "deadfall", "distance"]:
+		ordered = ordered and int(performance[key]) < int(balanced[key]) and int(balanced[key]) < int(quality[key])
+	_add("23c mobile world quality tiers", ordered,
+		"vegetation/cull budgets performance=%d/%d balanced=%d/%d quality=%d/%d" % [
+			performance["trees"] + performance["shrubs"] + performance["grass"], performance["distance"],
+			balanced["trees"] + balanced["shrubs"] + balanced["grass"], balanced["distance"],
+			quality["trees"] + quality["shrubs"] + quality["grass"], quality["distance"]])
+
+func _check_perception_integration_contract() -> void:
+	var awareness: HumanAwareness
+	var human: HumanPresence
+	for node in get_tree().get_nodes_in_group("human_presence"):
+		var candidate := node as HumanPresence
+		if candidate != null and candidate.presence_id == "presence_f1":
+			human = candidate
+			awareness = candidate.get_node_or_null("Awareness") as HumanAwareness
+			break
+	var vision: Node = human.get_node_or_null("VisionSensor") if human else null
+	var sight_range_ok := vision != null and _has_property(vision, "sensing_range") \
+		and is_equal_approx(float(vision.get("sensing_range")), HumanAwareness.SIGHT_RANGE)
+	var target_blocker := get_tree().get_first_node_in_group("player") as CharacterBody3D
+	var los_semantics := false
+	if vision != null and target_blocker != null and vision.has_method("line_of_sight_clear"):
+		los_semantics = bool(vision.call("line_of_sight_clear", {"collider": null}, target_blocker)) \
+			and bool(vision.call("line_of_sight_clear", {"collider": target_blocker}, target_blocker)) \
+			and not bool(vision.call("line_of_sight_clear", {"collider": human}, target_blocker))
+	var world_region := get_tree().get_first_node_in_group("visual_wilderness_region") as Node3D
+	var sun := world_region.get_node_or_null("Sun") as DirectionalLight3D if world_region else null
+	var foliage_occlusion := false
+	if vision != null and vision.has_method("vegetation_line_transmission") and world_region != null:
+		var shrubs := world_region.get_node_or_null("Region/Cell_0_0/Dressing/Vegetation/Shrubs_MultiMesh") as MultiMeshInstance3D
+		if shrubs != null and shrubs.multimesh != null and shrubs.multimesh.instance_count > 0:
+			var shrub_transform := shrubs.multimesh.get_instance_transform(0)
+			var shrub_center: Vector3 = shrubs.global_transform * shrub_transform.origin
+			var shrub_scale := shrub_transform.basis.get_scale().y
+			var brush_line := Vector3(shrub_center.x, shrub_center.y + 0.08, shrub_center.z - 2.0 * shrub_scale)
+			var brush_end := Vector3(shrub_center.x, shrub_center.y + 0.08, shrub_center.z + 2.0 * shrub_scale)
+			var clear_start := Vector3(-20.0, 1.5, 0.0)
+			var clear_end := Vector3(37.0, 1.5, 0.0)
+			var brush_transmission := float(vision.call("vegetation_line_transmission", brush_line, brush_end))
+			var clear_transmission := float(vision.call("vegetation_line_transmission", clear_start, clear_end))
+			foliage_occlusion = brush_transmission < 0.8 and is_equal_approx(clear_transmission, 1.0)
+	var identity_present := awareness != null and _has_property(awareness, "identity_confidence")
+	var identity_unknown := identity_present and is_zero_approx(float(awareness.get("identity_confidence")))
+	var sound_masking := awareness != null and awareness.has_method("sound_mask_factor")
+	var wilderness_audio := get_tree().get_first_node_in_group("wilderness_audio")
+	var surface_and_water := wilderness_audio != null and wilderness_audio.has_method("surface_at") \
+		and wilderness_audio.has_method("water_masks_noise_at")
+	if surface_and_water:
+		var wet_surface := str(wilderness_audio.call("surface_at", Vector3(45.0, 0.0, -19.0))) == "WET"
+		var gravel_surface := str(wilderness_audio.call("surface_at", Vector3.ZERO)) == "GRAVEL"
+		var creek_masks := bool(wilderness_audio.call("water_masks_noise_at", Vector3(45.0, 0.0, -19.0)))
+		surface_and_water = wet_surface and gravel_surface and creek_masks
+	var game_world := get_tree().get_first_node_in_group("game_world") as GameWorld
+	var noise_metadata := false
+	if game_world != null and not game_world.world_state.traces.is_empty():
+		game_world.call("_on_noise_event", Vector3(45.0, 0.0, -19.0), 0.5, "FOOTSTEP")
+		var trace: Dictionary = game_world.world_state.traces.back()
+		var detail := str(trace.get("detail", ""))
+		noise_metadata = detail.contains("surface=WET") and detail.contains("water=true")
+	if sound_masking:
+		var clear_mask: Variant = awareness.call("sound_mask_factor", "CLEAR", "SOIL", false)
+		var rain_mask: Variant = awareness.call("sound_mask_factor", "RAIN", "SOIL", false)
+		var water_mask: Variant = awareness.call("sound_mask_factor", "CLEAR", "WET", true)
+		sound_masking = clear_mask is float and rain_mask is float and water_mask is float \
+			and is_equal_approx(float(clear_mask), 1.0) \
+			and float(rain_mask) < float(clear_mask) and float(water_mask) < float(clear_mask)
+	var ok := vision != null and sight_range_ok and los_semantics and foliage_occlusion and sun != null and sun.is_in_group("sun") \
+		and identity_unknown and sound_masking and surface_and_water and noise_metadata
+	_add("24 NPC perception integration", ok,
+		"vision_sensor=%s range=%s los=%s foliage_occlusion=%s sun_group=%s identity_unknown=%s sound_masking=%s surface_water=%s noise_metadata=%s" % [
+			vision != null, sight_range_ok, los_semantics, foliage_occlusion, sun != null and sun.is_in_group("sun"), identity_unknown, sound_masking, surface_and_water, noise_metadata])
+
+func _check_evidence_identity_persistence() -> void:
+	var source := WorldStateManager.new()
+	add_child(source)
+	var first := source.record_trace("SOUND", Vector3(1.0, 0.0, 1.0), 0.4, "kind=FOOTSTEP;surface=SOIL")
+	var trace_b := source.record_trace("SOUND", Vector3(1.0, 0.0, 1.0), 0.4, "kind=FOOTSTEP;surface=SOIL")
+	var first_id := str(first.get("id", ""))
+	var trace_b_id := str(trace_b.get("id", ""))
+	var source_snapshot: Dictionary = source.snapshot()
+	var restored_world := WorldStateManager.new()
+	add_child(restored_world)
+	restored_world.restore(source_snapshot)
+	var third := restored_world.record_trace("SOUND", Vector3(1.0, 0.0, 1.0), 0.4, "kind=FOOTSTEP;surface=SOIL")
+	var third_id := str(third.get("id", ""))
+	var trace_ids_ok := first_id != "" and trace_b_id != "" and third_id != "" \
+		and first_id != trace_b_id and first_id != third_id and trace_b_id != third_id
+	var memory := HumanAwareness.new()
+	var memory_record := {
+		"state": "TRACKING",
+		"identity_confidence": 0.0,
+		"believed_identity": "UNKNOWN",
+		"perceived_subject": "UNKNOWN",
+		"suspected_actor": "UNKNOWN",
+		"evidence_count": 2,
+		"processed_traces": [first_id, trace_b_id],
+	}
+	memory.restore_from(memory_record)
+	var restored_memory: Dictionary = memory.snapshot()
+	var processed: Array = restored_memory.get("processed_traces", [])
+	var memory_ok := is_zero_approx(float(restored_memory.get("identity_confidence", -1.0))) \
+		and str(restored_memory.get("believed_identity", "")) == "UNKNOWN" \
+		and str(restored_memory.get("perceived_subject", "")) == "UNKNOWN" \
+		and str(restored_memory.get("suspected_actor", "")) == "UNKNOWN" \
+		and int(restored_memory.get("evidence_count", -1)) == 2 \
+		and processed.size() == 2 and processed.has(first_id) and processed.has(trace_b_id)
+	var sighting := HumanAwareness.new()
+	sighting.record_visual_observation(0.72, Vector3(2.0, 0.0, 2.0), 0.5)
+	var possible_person := str(sighting.snapshot().get("perceived_subject", "")) == "POSSIBLE_PERSON" \
+		and str(sighting.snapshot().get("suspected_actor", "")) == "UNIDENTIFIED_PERSON" \
+		and str(sighting.snapshot().get("believed_identity", "")) == "UNKNOWN" \
+		and is_zero_approx(float(sighting.snapshot().get("identity_confidence", -1.0)))
+	sighting.record_visual_observation(0.72, Vector3(2.0, 0.0, 2.0), 1.0)
+	var confirmed_person := str(sighting.snapshot().get("perceived_subject", "")) == "CONFIRMED_PERSON" \
+		and int(sighting.snapshot().get("evidence_count", 0)) == 1
+	var validator := SaveStateManager.new()
+	var valid_record := bool(validator.call("_valid_awareness_records", {"presence_f1": memory_record}))
+	var malformed := memory_record.duplicate(true)
+	malformed["identity_confidence"] = "certain"
+	var malformed_rejected := not bool(validator.call("_valid_awareness_records", {"presence_f1": malformed}))
+	var malformed_subject := memory_record.duplicate(true)
+	malformed_subject["perceived_subject"] = "CORLEY"
+	var malformed_subject_rejected := not bool(validator.call("_valid_awareness_records", {"presence_f1": malformed_subject}))
+	var valid_traces := bool(validator.call("_valid_trace_records", source_snapshot.get("traces", [])))
+	var malformed_trace := first.duplicate(true)
+	malformed_trace["id"] = 7
+	var malformed_trace_rejected := not bool(validator.call("_valid_trace_records", [malformed_trace]))
+	var malformed_world := source_snapshot.duplicate(true)
+	malformed_world["trace_sequence"] = "bad"
+	var malformed_sequence_rejected := not bool(validator.call("_valid_world_snapshot", malformed_world))
+	_add("25 evidence identity persistence", trace_ids_ok and memory_ok and possible_person and confirmed_person \
+		and valid_record and malformed_rejected and malformed_subject_rejected \
+		and valid_traces and malformed_trace_rejected and malformed_sequence_rejected,
+		"unique_trace_ids=%s memory=%s possible_person=%s confirmed_person=%s awareness_shape=%s malformed_awareness=%s malformed_subject=%s trace_shape=%s malformed_trace=%s malformed_sequence=%s" % [
+			trace_ids_ok, memory_ok, possible_person, confirmed_person, valid_record, malformed_rejected,
+			malformed_subject_rejected, valid_traces, malformed_trace_rejected, malformed_sequence_rejected])
+	source.queue_free()
+	restored_world.queue_free()
+	memory.free()
+	sighting.free()
+	validator.free()
+
+func _check_combat_physiology_contract() -> void:
+	var game_world := get_tree().get_first_node_in_group("game_world") as GameWorld
+	var player := get_tree().get_first_node_in_group("player") as CharacterBody3D
+	var combat := player.get_node_or_null("CombatController") if player else null
+	var player_state := game_world.player_state if game_world else null
+	var body_state := player.get_node_or_null("BodyState") as BodyState if player else null
+	var pressure: PressureManager = game_world.pressure if game_world else null
+	if combat == null or player_state == null or body_state == null or pressure == null:
+		_add("26 combat physiology persistence", false, "combat or PlayerStateManager missing")
+		return
+	var baseline: Dictionary = player_state.snapshot()
+	var control_before := float(combat.get("control"))
+	var condition_before := body_state.condition
+	var pressure_condition_before := pressure.condition
+	var injury_before := player_state.band("INJURY")
+	var exertion_before := player_state.band("EXERTION")
+	combat.set("control", 1.0)
+	for _hit in range(4):
+		combat.call("host_event", "hit_taken", 0.1)
+	var injury_after := player_state.band("INJURY")
+	var exertion_after := player_state.band("EXERTION")
+	var hit_snapshot: Dictionary = player_state.snapshot()
+	var restored := PlayerStateManager.new()
+	restored.restore(hit_snapshot)
+	var consequence_recorded := injury_after > injury_before and exertion_after > exertion_before
+	var consequence_persisted := is_equal_approx(restored.band("INJURY"), injury_after) \
+		and is_equal_approx(restored.band("EXERTION"), exertion_after)
+	pressure.update(0.0, player)
+	body_state.set_condition(pressure.condition)
+	var movement_consequence := pressure.condition == PressureManager.CONDITION_INJURED \
+		and body_state.condition_speed_scale() < 1.0 and body_state.condition_accel_scale() < 1.0
+	_add("26 combat physiology persistence", consequence_recorded and consequence_persisted and movement_consequence,
+		"injury=%.2f->%.2f exertion=%.2f->%.2f restored=%.2f/%.2f movement=%s speed=%.2f accel=%.2f" % [
+			injury_before, injury_after, exertion_before, exertion_after,
+			restored.band("INJURY"), restored.band("EXERTION"), body_state.condition,
+			body_state.condition_speed_scale(), body_state.condition_accel_scale()])
+	player_state.restore(baseline)
+	combat.set("control", control_before)
+	pressure.condition = pressure_condition_before
+	body_state.set_condition(condition_before)
+	restored.free()
 
 func _check_motion_grounding() -> void:
 	var player := get_tree().get_first_node_in_group("player") as CharacterBody3D

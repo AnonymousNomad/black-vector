@@ -6,7 +6,7 @@ const ELEVATION_THRESHOLD := 0.5
 const OVERHEAD_PROBE := 4.0
 const LATERAL_PROBE := 1.2
 const LATERAL_HEIGHT := 0.45
-const CONCEAL_RADIUS := 1.6
+const CONCEAL_RADIUS := 1.8
 const STANCE_PROTECTION := {0: 0.0, 1: 0.2, 2: 0.3}
 const ROUTE_SAMPLE_SPACING := 2.0
 const ROUTE_MAX_SAMPLES := 12
@@ -121,6 +121,6 @@ func _blocked(space: PhysicsDirectSpaceState3D, from: Vector3, direction: Vector
 func _near_conceal(position: Vector3) -> bool:
 	for node in get_tree().get_nodes_in_group("context_conceal"):
 		var prop := node as Node3D
-		if prop and position.distance_to(prop.global_position) <= CONCEAL_RADIUS:
+		if prop and Vector2(position.x - prop.global_position.x, position.z - prop.global_position.z).length() <= CONCEAL_RADIUS:
 			return true
 	return false

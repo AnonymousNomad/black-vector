@@ -43,6 +43,7 @@ var contact_records := {}
 var presence_records := {}
 var narrative_seen := {}
 var clock_hour := 0.0
+var trace_sequence := 0
 
 func _ready() -> void:
 	_channels[CHANNEL_TIME] = ["DAWN", 0]
@@ -140,7 +141,9 @@ func add_field_entry(kind: String, subject: String, detail: String, position: Ve
 	return entry
 
 func record_trace(kind: String, position: Vector3, intensity: float, detail := "", source := "") -> Dictionary:
+	trace_sequence += 1
 	var trace := {
+		"id": "trace_%08d" % trace_sequence,
 		"kind": kind,
 		"position": [position.x, position.y, position.z],
 		"intensity": clampf(intensity, 0.0, 1.0),
@@ -285,6 +288,7 @@ func snapshot() -> Dictionary:
 		"pois": pois.duplicate(true),
 		"field_record": field_record.duplicate(true),
 		"traces": traces.duplicate(true),
+		"trace_sequence": trace_sequence,
 		"routes": routes.duplicate(true),
 		"human_records": human_records.duplicate(true),
 		"awareness_records": awareness_records.duplicate(true),
@@ -318,6 +322,11 @@ func restore(snap: Dictionary) -> void:
 		var trace_data: Variant = snap["traces"]
 		if trace_data is Array:
 			traces = (trace_data as Array).duplicate(true)
+	trace_sequence = int(snap.get("trace_sequence", traces.size()))
+	for trace in traces:
+		var trace_id := str(trace.get("id", "")) if trace is Dictionary else ""
+		if trace_id.begins_with("trace_"):
+			trace_sequence = maxi(trace_sequence, int(trace_id.trim_prefix("trace_")))
 	if snap.has("routes"):
 		var route_data: Variant = snap["routes"]
 		if route_data is Array:

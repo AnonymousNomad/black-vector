@@ -189,6 +189,8 @@ func _valid_world_snapshot(snap: Dictionary) -> bool:
 			or not _valid_contact_records(snap["contact_records"]) \
 			or not _valid_boolean_map(snap["narrative_seen"]):
 		return false
+	if snap.has("trace_sequence") and not _is_integer_number(snap["trace_sequence"]):
+		return false
 	return not snap.has("presence_records") or _valid_presence_records(snap["presence_records"])
 
 func _valid_player_snapshot(snap: Dictionary) -> bool:
@@ -271,6 +273,8 @@ func _valid_trace_records(value: Variant) -> bool:
 				or typeof(item.get("source")) != TYPE_STRING \
 				or not _is_number(item.get("hour")):
 			return false
+		if item.has("id") and typeof(item["id"]) != TYPE_STRING:
+			return false
 	return true
 
 func _valid_route_records(value: Variant) -> bool:
@@ -319,6 +323,28 @@ func _valid_awareness_records(value: Variant) -> bool:
 			if item.has(key) and not _is_number(item[key]):
 				return false
 		if item.has("evidence_source") and typeof(item["evidence_source"]) != TYPE_STRING:
+			return false
+		if item.has("identity_confidence") and not _is_number(item["identity_confidence"]):
+			return false
+		if item.has("believed_identity") and typeof(item["believed_identity"]) != TYPE_STRING:
+			return false
+		if item.has("perceived_subject") and (typeof(item["perceived_subject"]) != TYPE_STRING \
+				or not ["UNKNOWN", "UNRESOLVED_SOURCE", "POSSIBLE_PERSON", "CONFIRMED_PERSON"].has(item["perceived_subject"])):
+			return false
+		if item.has("suspected_actor") and (typeof(item["suspected_actor"]) != TYPE_STRING \
+				or not ["UNKNOWN", "UNRESOLVED_SOURCE", "UNIDENTIFIED_PERSON"].has(item["suspected_actor"])):
+			return false
+		if item.has("evidence_count") and not _is_integer_number(item["evidence_count"]):
+			return false
+		if item.has("processed_traces") and not _valid_string_array(item["processed_traces"]):
+			return false
+	return true
+
+func _valid_string_array(value: Variant) -> bool:
+	if not value is Array:
+		return false
+	for entry in value as Array:
+		if typeof(entry) != TYPE_STRING:
 			return false
 	return true
 

@@ -11,6 +11,7 @@ const SIGHT_THRESHOLD := 0.5
 const SIGHT_TRACK_TIME := 1.5
 const EVIDENCE_RADIUS := 6.0
 const SOUND_RADIUS := 16.0
+const SOUND_MAX_AGE_HOURS := 0.02
 const SUSPICION_SUSPICIOUS := 0.3
 const SUSPICION_SEARCHING := 0.55
 const SUSPICION_DECAY := 0.06
@@ -31,6 +32,7 @@ const MIRROR_INTERVAL := 1.0
 var presence: HumanPresence
 var world: WorldStateManager
 var recon: ReconManager
+var vision: VisionSensor
 
 var state: int = State.UNAWARE
 var suspicion := 0.0
@@ -39,6 +41,11 @@ var last_known_time := 0.0
 var investigation_target := Vector3.ZERO
 var evidence_source := ""
 var evidence_confidence := 0.0
+var identity_confidence := 0.0
+var believed_identity := "UNKNOWN"
+var perceived_subject := "UNKNOWN"
+var suspected_actor := "UNKNOWN"
+var evidence_count := 0
 
 var _sight_time := 0.0
 var _contact_clock := 999.0
@@ -53,17 +60,20 @@ func bind(p: HumanPresence, w: WorldStateManager, r: ReconManager) -> void:
 	presence = p
 	world = w
 	recon = r
+	vision = presence.get_node_or_null("VisionSensor") as VisionSensor
 
 func update(delta: float, player: CharacterBody3D) -> void:
 	if presence == null or world == null:
 		return
 	if player != null:
-		if can_see_player(player):
-			_sight_time += delta
+		var sight := _sense_player(player)
+		var sight_score := float(sight.get("score", 0.0))
+		if bool(sight.get("visible", false)) and sight_score >= SIGHT_THRESHOLD:
+			record_visual_observation(sight_score, player.global_position, delta)
 			last_known_position = player.global_position
 			last_known_time = world.clock_hour
 			evidence_source = "SIGHT"
-			evidence_confidence = 1.0
+			evidence_confidence = sight_score
 			suspicion = minf(1.0, suspicion + delta * 0.6)
 			_contact_clock = 0.0
 		else:
@@ -83,34 +93,49 @@ func state_name() -> String:
 	return STATE_NAMES[state]
 
 func can_see_player(player: CharacterBody3D) -> bool:
-	if presence == null or player == null:
-		return false
-	var eye := presence.global_position + Vector3.UP * 1.5
-	var target := player.global_position + Vector3.UP * 1.0
-	var to_target := target - eye
-	var distance := to_target.length()
-	if distance > SIGHT_RANGE:
-		return false
-	var forward := -presence.global_transform.basis.z
-	forward.y = 0.0
-	var flat := Vector3(to_target.x, 0.0, to_target.z)
-	if flat.length() > 0.01 and forward.angle_to(flat.normalized()) > SIGHT_HALF_ANGLE:
-		return false
-	var space := presence.get_world_3d().direct_space_state
-	var query := PhysicsRayQueryParameters3D.create(eye, target)
-	query.collision_mask = 1
-	query.collide_with_areas = false
-	query.collide_with_bodies = true
-	query.exclude = [presence.get_rid()]
-	var hit := space.intersect_ray(query)
-	if not hit.is_empty():
-		var collider: Node = hit.get("collider") as Node
-		if collider != player:
-			return false
-	var signature: Node = player.get_node_or_null("SignatureController")
+	var observation := _sense_player(player)
+	return bool(observation.get("visible", false)) and float(observation.get("score", 0.0)) >= SIGHT_THRESHOLD
+
+func _sense_player(player: CharacterBody3D) -> Dictionary:
+	if presence == null or player == null or vision == null:
+		return {"visible": false, "score": 0.0}
+	var signature := player.get_node_or_null("SignatureController") as SignatureController
 	if signature == null:
-		return false
-	return float(signature.get("visibility")) >= SIGHT_THRESHOLD
+		return {"visible": false, "score": 0.0}
+	var speed := Vector2(player.velocity.x, player.velocity.z).length()
+	return vision.sense(player.global_position + Vector3.UP * 1.0, speed, signature.visibility, player)
+
+func record_visual_observation(score: float, position: Vector3, delta: float) -> void:
+	if score < SIGHT_THRESHOLD:
+		return
+	if _sight_time <= 0.0:
+		evidence_count += 1
+	_sight_time += maxf(0.0, delta)
+	last_known_position = position
+	perceived_subject = "CONFIRMED_PERSON" if _sight_time >= SIGHT_TRACK_TIME else "POSSIBLE_PERSON"
+	suspected_actor = "UNIDENTIFIED_PERSON"
+	believed_identity = "UNKNOWN"
+	identity_confidence = 0.0
+
+func sound_mask_factor(weather: String, surface: String, water_masked: bool) -> float:
+	var factor := 1.0
+	match weather:
+		"RAIN":
+			factor *= 0.82
+		"STORM":
+			factor *= 0.64
+	match surface:
+		"GRASS":
+			factor *= 0.82
+		"WET":
+			factor *= 0.72
+		"GRAVEL":
+			factor *= 1.08
+		"ROCK":
+			factor *= 1.04
+	if water_masked:
+		factor *= 0.68
+	return clampf(factor, 0.1, 1.0)
 
 func trace_usable(trace: Dictionary) -> bool:
 	if world == null or presence == null:
@@ -123,6 +148,9 @@ func trace_usable(trace: Dictionary) -> bool:
 	return true
 
 func snapshot() -> Dictionary:
+	var processed: Array[String] = []
+	for trace_id in _seen_traces.keys():
+		processed.append(str(trace_id))
 	return {
 		"state": state_name(),
 		"last_known_position": [last_known_position.x, last_known_position.y, last_known_position.z],
@@ -130,6 +158,12 @@ func snapshot() -> Dictionary:
 		"investigation_target": [investigation_target.x, investigation_target.y, investigation_target.z],
 		"evidence_source": evidence_source,
 		"evidence_confidence": evidence_confidence,
+		"identity_confidence": identity_confidence,
+		"believed_identity": believed_identity,
+		"perceived_subject": perceived_subject,
+		"suspected_actor": suspected_actor,
+		"evidence_count": evidence_count,
+		"processed_traces": processed,
 		"suspicion": suspicion,
 	}
 
@@ -144,6 +178,17 @@ func restore_from(record: Dictionary) -> void:
 	investigation_target = _to_vec3(record.get("investigation_target", []), investigation_target)
 	evidence_source = str(record.get("evidence_source", ""))
 	evidence_confidence = float(record.get("evidence_confidence", 0.0))
+	identity_confidence = float(record.get("identity_confidence", 0.0))
+	believed_identity = str(record.get("believed_identity", "UNKNOWN"))
+	perceived_subject = str(record.get("perceived_subject", "UNKNOWN"))
+	suspected_actor = str(record.get("suspected_actor", "UNKNOWN"))
+	evidence_count = int(record.get("evidence_count", 0))
+	_seen_traces.clear()
+	var processed: Variant = record.get("processed_traces", [])
+	if processed is Array:
+		for trace_id in processed:
+			if trace_id is String:
+				_seen_traces[trace_id] = true
 
 func mirror() -> void:
 	if world && presence:
@@ -175,9 +220,18 @@ func _scan_traces(delta: float) -> void:
 		var kind := str(trace.get("kind", ""))
 		var intensity := float(trace.get("intensity", 0.0))
 		if kind == "SOUND":
-			if distance <= SOUND_RADIUS * (0.6 + 0.4 * intensity):
+			var sound_age := world.clock_hour - float(trace.get("hour", world.clock_hour))
+			if sound_age < -0.001 or sound_age > SOUND_MAX_AGE_HOURS:
 				_seen_traces[key] = true
-				_register_stimulus(position, "SOUND", SUSPICION_SOUND * (0.5 + 0.5 * intensity), intensity)
+				continue
+			var detail := str(trace.get("detail", ""))
+			var surface := _detail_value(detail, "surface", "SOIL")
+			var water_masked := _detail_value(detail, "water", "false") == "true" \
+				or _water_masks_noise_at(presence.global_position)
+			var audibility := intensity * sound_mask_factor(world.channel_value(world.CHANNEL_WEATHER), surface, water_masked)
+			if audibility >= 0.1 and distance <= SOUND_RADIUS * (0.6 + 0.4 * audibility):
+				_seen_traces[key] = true
+				_register_stimulus(position, "SOUND", SUSPICION_SOUND * (0.5 + 0.5 * audibility), audibility)
 		elif kind == "FOOTPRINT" or kind == "MOVE_OBJECT":
 			if distance > EVIDENCE_RADIUS:
 				continue
@@ -193,14 +247,30 @@ func _scan_traces(delta: float) -> void:
 			if state == State.SEARCHING and fresh:
 				_set_state(State.TRACKING)
 
+func _detail_value(detail: String, key: String, fallback: String) -> String:
+	for part in detail.split(";"):
+		var pair := part.split("=", false, 1)
+		if pair.size() == 2 and pair[0] == key:
+			return pair[1]
+	return fallback
+
+func _water_masks_noise_at(position: Vector3) -> bool:
+	var audio := get_tree().get_first_node_in_group("wilderness_audio")
+	return audio != null and audio.has_method("water_masks_noise_at") \
+		and bool(audio.call("water_masks_noise_at", position))
+
 func _register_stimulus(position: Vector3, source: String, amount: float, intensity: float) -> void:
 	var point := _approximate(position, source)
+	if perceived_subject == "UNKNOWN":
+		perceived_subject = "UNRESOLVED_SOURCE"
+		suspected_actor = "UNRESOLVED_SOURCE"
 	investigation_target = point
 	last_known_position = position
 	last_known_time = world.clock_hour
 	evidence_source = source
 	evidence_confidence = clampf(intensity, 0.0, 1.0)
 	suspicion = minf(1.0, suspicion + amount)
+	evidence_count += 1
 	_contact_clock = 0.0
 	_inspect_time = 0.0
 	_samples = _make_samples(point)
@@ -219,6 +289,9 @@ func _blocked_to(position: Vector3) -> bool:
 	return not space.intersect_ray(query).is_empty()
 
 func _trace_key(trace: Dictionary) -> String:
+	var trace_id := str(trace.get("id", ""))
+	if trace_id != "":
+		return trace_id
 	var p: Array = trace.get("position", [])
 	return "%s|%s|%s|%s" % [str(trace.get("kind", "")), str(p), str(trace.get("hour", 0.0)), str(trace.get("source", ""))]
 

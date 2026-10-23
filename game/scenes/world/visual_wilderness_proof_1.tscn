@@ -9,6 +9,7 @@ script = ExtResource("1_visual")
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 
 [node name="Sun" type="DirectionalLight3D" parent="."]
+groups = ["sun"]
 rotation_degrees = Vector3(-49, -28, 0)
 light_color = Color(1, 0.93, 0.82, 1)
 light_energy = 1.15

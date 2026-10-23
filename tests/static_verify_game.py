@@ -582,6 +582,46 @@ def verify_d032_s3_slice() -> list:
     return issues
 
 
+def verify_android_candidate() -> list:
+    issues = []
+    preset_path = os.path.join(GAME, "export_presets.cfg")
+    if not os.path.isfile(preset_path):
+        return ["Android candidate preset missing: game/export_presets.cfg"]
+    preset = _read_rel(preset_path)
+    section = re.search(r"\[preset\.0\]([^\[]*)", preset)
+    options = re.search(r"\[preset\.0\.options\]([^\[]*)", preset)
+    if not section or not options:
+        return ["Android candidate preset must define preset.0 and preset.0.options"]
+    header = section.group(1)
+    settings = options.group(1)
+    for key, expected in (
+        ("name", '"Android"'),
+        ("platform", '"Android"'),
+        ("export_path", '"../artifacts/android/black-vector-dev.apk"'),
+    ):
+        if not re.search(rf"^{re.escape(key)}={re.escape(expected)}$", header, re.MULTILINE):
+            issues.append(f"Android candidate preset: {key} must be {expected}")
+    expected_options = {
+        "architectures/arm64-v8a": "true",
+        "architectures/armeabi-v7a": "false",
+        "architectures/x86": "false",
+        "architectures/x86_64": "false",
+        "package/unique_name": '"com.blackvector.development"',
+        "version/name": '"0.1.0"',
+        "version/code": "1",
+        "gradle_build/use_gradle_build": "false",
+    }
+    for key, expected in expected_options.items():
+        if not re.search(rf"^{re.escape(key)}={re.escape(expected)}$", settings, re.MULTILINE):
+            issues.append(f"Android candidate preset: {key} must be {expected}")
+    project = _read_rel(os.path.join(GAME, "project.godot"))
+    if 'renderer/rendering_method.mobile="gl_compatibility"' not in project:
+        issues.append("Android candidate project renderer must remain GL Compatibility")
+    if re.search(r"^keystore/release_(?:user|password)=\".+\"$", settings, re.MULTILINE):
+        issues.append("Android candidate preset must not contain release signing credentials")
+    return issues
+
+
 def main() -> int:
     ok = []
     issues = []
@@ -696,6 +736,12 @@ def main() -> int:
         issues.extend(visual_issues[:12])
     else:
         ok.append("Visual Wilderness Proof 1 foundation/ownership invariants hold")
+
+    android_issues = verify_android_candidate()
+    if android_issues:
+        issues.extend(android_issues)
+    else:
+        ok.append("Android candidate preset targets arm64 GL Compatibility without release credentials")
 
     print("== STATIC VERIFICATION (game/) ==")
     for item in sorted(ok):

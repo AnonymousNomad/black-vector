@@ -16,6 +16,7 @@ var _rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
 	add_to_group("visual_wilderness_region")
+	$Sun.add_to_group("sun")
 	_rng.seed = deterministic_seed
 	_configure_environment()
 	_build_terrain()
@@ -103,6 +104,12 @@ func _terrain_height(x: float, z: float) -> float:
 	var creek_cut := exp(-pow((z + 19.0) / 5.0, 2.0) - pow((x - 58.0) / 42.0, 2.0)) * 0.45
 	return lowland + ridge - creek_cut
 
+func terrain_normal(x: float, z: float) -> Vector3:
+	var sample_step := 0.5
+	var slope_x := (_terrain_height(x + sample_step, z) - _terrain_height(x - sample_step, z)) / (2.0 * sample_step)
+	var slope_z := (_terrain_height(x, z + sample_step) - _terrain_height(x, z - sample_step)) / (2.0 * sample_step)
+	return Vector3(-slope_x, 1.0, -slope_z).normalized()
+
 func _build_terrain() -> void:
 	var terrain_mesh := ArrayMesh.new()
 	var vertices := PackedVector3Array()
@@ -117,7 +124,7 @@ func _build_terrain() -> void:
 		for x_index in range(x_count):
 			var x := -70.0 + float(x_index) * step
 			vertices.append(Vector3(x, _terrain_height(x, z), z))
-			normals.append(Vector3.UP)
+			normals.append(terrain_normal(x, z))
 			uvs.append(Vector2(float(x_index) / float(x_count - 1), float(z_index) / float(z_count - 1)))
 	for z_index in range(z_count - 1):
 		for x_index in range(x_count - 1):
@@ -372,6 +379,38 @@ func _build_vegetation() -> void:
 		deadfall_transforms.append(Transform3D(basis, Vector3(x, _terrain_height(x, z) + 0.22, z)))
 	var deadfall_mesh := _cylinder_mesh(0.16, 0.2, 3.0, 7)
 	_multi_mesh_instance(parent, "Deadfall_MultiMesh", deadfall_mesh, deadfall_transforms, float(settings["distance"]) * 0.9, _material(Color("#746653"), 0.95))
+
+func vegetation_line_transmission(from: Vector3, to: Vector3) -> float:
+	var segment := to - from
+	var segment_length_squared := segment.length_squared()
+	if segment_length_squared <= 0.0001:
+		return 1.0
+	var transmission := 1.0
+	transmission *= _multimesh_line_transmission("ConiferTrunks_MultiMesh", from, segment, segment_length_squared, 0.28, 0.24)
+	transmission *= _multimesh_line_transmission("Shrubs_MultiMesh", from, segment, segment_length_squared, 0.62, 1.0)
+	return clampf(transmission, 0.24, 1.0)
+
+func _multimesh_line_transmission(instance_name: String, from: Vector3, segment: Vector3,
+		segment_length_squared: float, attenuation: float, horizontal_radius: float) -> float:
+	var instance := get_node_or_null("Region/Cell_0_0/Dressing/Vegetation/%s" % instance_name) as MultiMeshInstance3D
+	if instance == null or instance.multimesh == null:
+		return 1.0
+	var transmission := 1.0
+	for index in range(instance.multimesh.instance_count):
+		var local_transform := instance.multimesh.get_instance_transform(index)
+		var world_transform := instance.global_transform * local_transform
+		var center := world_transform.origin
+		var along := clampf((center - from).dot(segment) / segment_length_squared, 0.0, 1.0)
+		var closest := from + segment * along
+		var scale := world_transform.basis.get_scale()
+		var dx := (closest.x - center.x) / maxf(0.01, horizontal_radius * scale.x)
+		var dz := (closest.z - center.z) / maxf(0.01, horizontal_radius * scale.z)
+		var vertical_radius := 1.1 * scale.y if instance_name == "ConiferTrunks_MultiMesh" else 0.5 * scale.y
+		if dx * dx + dz * dz <= 1.0 and absf(closest.y - center.y) <= vertical_radius:
+			transmission *= attenuation
+			if transmission <= 0.24:
+				return 0.24
+	return transmission
 
 func debug_line() -> String:
 	return "VISUAL: %s | cell=250m envelope=500x250 | terrain=%.0fm2 | elevation=5m | vegetation=%d | water=%s" % [presentation_profile, _terrain_area, _vegetation_count, "creek" if _water_present else "none"]

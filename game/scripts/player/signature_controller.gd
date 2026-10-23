@@ -17,7 +17,7 @@ const AIRBORNE_PENALTY := 0.18
 const LANDING_THRESHOLD := -6.0
 
 @export var cover_probe_height := 4.0
-@export var conceal_radius := 1.6
+@export var conceal_radius := 1.8
 @export var throttle_interval := 0.2
 @export var debug_log_enabled := false
 
@@ -182,7 +182,7 @@ func update_cover(body: CharacterBody3D) -> void:
 		if not is_instance_valid(node):
 			continue
 		var prop := node as Node3D
-		if body.global_position.distance_to(prop.global_position) <= conceal_radius:
+		if Vector2(body.global_position.x - prop.global_position.x, body.global_position.z - prop.global_position.z).length() <= conceal_radius:
 			near_conceal = true
 			break
 

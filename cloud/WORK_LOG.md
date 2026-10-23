@@ -98,3 +98,57 @@ Verification: foundation harness **26/26**; malformed nested awareness data is r
 Verified the official Godot 4.7.2 Linux archive against the SHA-512 recorded in `cloud/RECONCILIATION.md`, saved an idempotent installer and startup workflow in the cloud environment draft, and updated repository test instructions. The methodology checker now resolves the checkout root from its own path. The current environment passes its documented setup checks. The draft is saved but still requires the user to review and publish it in environment settings.
 
 Next: continue the remaining C2–C13 work independent of the asset blocker, beginning with perception/evidence/combat audits and Android artifact feasibility. Return to production Corley asset closure when the approved `game-dev` workflow becomes available. Physical Android remains `PHYSICAL_ANDROID_NOT_TESTED`.
+
+## Autonomous continuation around C1 — C2–C13 engineering checkpoint — 2026-10-23
+
+C1 asset scope remains parked at the missing approved `game-dev` toolchain. Work continued on systems and content already authorized by the bounded S-1→F1 proof. No production character asset was downloaded or substituted; the in-game character remains `ENGINEERING_PROXY`.
+
+### BV-C2 world/graphics — partial
+
+Added analytic terrain slope normals, vegetation line transmission through the existing conifer/shrub batches, and verified the existing PERFORMANCE/BALANCED/QUALITY world budgets at 425/78 m, 710/100 m, and 1010/125 m (instances/visibility range). The earlier normal-play material capture remains at [`cloud/evidence/bv-c2/normal-play-vegetation-materials-1280x720.png`](evidence/bv-c2/normal-play-vegetation-materials-1280x720.png). This remains a graybox presentation; shoreline/water materials, weather response, structures, interior authoring, and production visual acceptance are not complete. No Android device performance claim is made.
+
+### BV-C3 human routines — partial
+
+Authored the F1 presence's bounded WORK and INSPECT day schedule. The runtime supports travel, idle outside authored hours, conversation pause/resumption, suspicion/search behavior, and return to the scheduled routine after awareness de-escalates. Routine fixture passes; the scene has one representative human and no squad coordination, alert network, or authored search/stand-down sequence.
+
+### BV-C4 perception/stealth — partial
+
+Integrated the F1 VisionSensor with the presence actor: range, field of view, motion, stance-derived visibility, LOS, terrain/body occlusion, directional sun/local practical light, and existing vegetation transmission affect sight score. Sound traces now carry surface/water metadata and recent sound discovery applies weather/surface/water masking. A deterministic route check proves a covered approach remains below sight threshold while the open doorway crosses it under sprint movement. Fog, physical foliage collision, human coordination, and device play have not been accepted.
+
+### BV-C5 evidence/knowledge — partial
+
+World traces receive monotonic IDs persisted across restart. Awareness state stores processed evidence IDs, evidence source/confidence, possible versus confirmed person perception, an unresolved/unidentified suspected actor, and identity belief/confidence independently. A sustained visual observation may establish “confirmed person” without identifying Corley. Local/regional institutional response, suspect propagation, and actor identification remain unimplemented because the current F1 proof does not authorize those consequence branches; the four D031 narrative keys remain the approved content boundary.
+
+### BV-C6 combat/physiology — partial
+
+Combat hit and defensive-failure events now update persistent INJURY/EXERTION, and injury feeds reduced movement speed/acceleration. The deterministic contract check reaches INJURED at 0.56 injury with 0.85 movement scales. Save/load preserves the bands. Injury treatment/recovery outcomes are not invented: D021 marks the exact recovery outcome as a candidate, and the bounded F1 first-proof does not authorize a medical consumable or treatment station. Weapon exchange, rig animation, and physical combat remain incomplete.
+
+### BV-C7 tactical approaches — partial
+
+The canonical fuel→restore dependency remains unchanged. The F1 low-cover route records `CONCEALED_APPROACH` at 0.00 disturbance risk; the open route records `MIXED_APPROACH` at 0.56. An integrated test uses the real sensor and awareness update: covered sprint score 0.32 leaves the survivor `UNAWARE`; exposed doorway score 0.52 produces `SEARCHING`. Fuel remains uncollected and power remains off. This establishes a meaningful route/exposure choice within the approved objective; the broader objective graph, negotiation/deception routes, and persistent downstream faction/community consequences remain outside the current proof.
+
+### BV-C8 Season-One content — partial
+
+The existing D032 first-restoration beat and four approved D031 narrative keys remain intact; the F1 survivor now has a bounded routine and approach choice. No later-season, facility, anomaly, early-camp, or faction content was invented. Additional playable content needs an accepted first-proof expansion/content gate; D031 remains a reconciled candidate with distinct engineering/content/operator gates.
+
+### BV-C9 audio/feedback — partial
+
+Existing generated wind/forest/creek ambience and surface-specific procedural footsteps are wired into evidence metadata and perception masking. Existing interaction, camera, movement, and injury hooks remain available. Authored sound assets, machinery/interior cues, UI feedback polish, and production Corley animation are incomplete; Corley-specific rig work is `PENDING_PRODUCTION_CORLEY_ASSET`.
+
+### BV-C10 persistence — complete for the tested slice
+
+Schema-2 atomic write/validation, backup and schema-1 recovery, startup restoration, one-shot event safety, presence/awareness memory, unique evidence IDs, and combat injury/exertion persist. The separate-process fixture confirms those fields restore and opening dialogue does not replay.
+
+### BV-C11 Android — blocked for artifact generation
+
+Added an arm64-v8a GL Compatibility debug candidate preset with no release credentials. Its application ID was checked against the repository contract and corrected to `com.blackvector.development`. Static platform validation passes. Godot export fails because 4.7.2 Android export templates and an Android SDK path with `platform-tools/adb` and `build-tools/apksigner` are absent; Java 21 exists but no valid Java SDK path is set in Editor Settings. `sdkmanager`, `adb`, and `apksigner` were not found. Godot's own build-template installer produced no progress for about 90 seconds and was stopped; no template was installed. Google SDK license terms were not accepted on the operator's behalf. No APK or APK hash exists. `PHYSICAL_ANDROID_NOT_TESTED`.
+
+### BV-C12 integrated review — partial
+
+The available review was internal source/canon audit plus deterministic/static checks. No Veritas/Ghost reviewer tools or independent fresh-context reviewer are connected in this environment, so neither review is claimed complete. Four ObjectDB shutdown leak warnings remain on the headless foundation run.
+
+### BV-C13 handoff — partial
+
+This checkpoint is documented and pushed on `cloud-handoff-black-vector`; no merge to `main` or external publication occurred. Remaining P0/P1 blockers include the production Corley asset pipeline, incomplete production world/AI/consequence/combat/content gates, Android build tooling/license acceptance, physical tablet testing, and independent Veritas/Ghost review.
+
+Verification at this checkpoint: Godot 4.7.2 foundation **33/33**; static verifier **40/40**; methodology validation **PASS**; editor scan and routine fixture **PASS**; two-process cold restart **PASS** with evidence identity and injury/exertion restored; `git diff --check` **clean**. The editor scan continues to warn that the Android `build-tools` directory is unavailable.

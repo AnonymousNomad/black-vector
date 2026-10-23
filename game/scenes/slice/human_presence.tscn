@@ -1,7 +1,8 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/slice/human_presence.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/slice/human_awareness.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/ai/vision_sensor.gd" id="3"]
 
 [sub_resource type="CapsuleMesh" id="capsule_mesh"]
 radius = 0.35
@@ -28,3 +29,8 @@ shape = SubResource("capsule_shape")
 
 [node name="Awareness" type="Node" parent="."]
 script = ExtResource("2")
+
+[node name="VisionSensor" type="Node3D" parent="."]
+position = Vector3(0, 1.6, 0)
+script = ExtResource("3")
+sensing_range = 18.0

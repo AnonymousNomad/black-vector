@@ -73,7 +73,7 @@ func _fill_layer(layer: Dictionary) -> void:
 		var sample := clampf(value * float(layer["amplitude"]), -0.7, 0.7)
 		playback.push_frame(Vector2(sample, sample))
 
-func _surface_at(position: Vector3) -> String:
+func surface_at(position: Vector3) -> String:
 	if position.x > 30.0 and position.x < 90.0 and absf(position.z + 19.0) < 7.0:
 		return "WET"
 	if position.x < 38.0 and absf(position.z) < 4.0:
@@ -84,10 +84,13 @@ func _surface_at(position: Vector3) -> String:
 		return "GRASS"
 	return "SOIL"
 
+func water_masks_noise_at(position: Vector3) -> bool:
+	return position.x > 30.0 and position.x < 90.0 and absf(position.z + 19.0) < 8.0
+
 func _on_noise_event(origin: Vector3, volume: float, kind: String) -> void:
 	if kind != "FOOTSTEP":
 		return
-	_last_surface = _surface_at(origin)
+	_last_surface = surface_at(origin)
 	_footstep_count += 1
 	_footstep_frequency = {"SOIL": 82.0, "GRASS": 68.0, "ROCK": 145.0, "GRAVEL": 116.0, "WET": 54.0}.get(_last_surface, 82.0)
 	_footstep_energy = clampf(volume * 0.7, 0.0, 0.7)

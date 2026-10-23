@@ -10,6 +10,7 @@ const LIT_SHADED := 0.6
 const SUN_SAMPLE_DIST := 45.0
 
 @export var lit_throttle := 0.2
+@export var sensing_range := MAX_RANGE
 
 var sun: Node = null
 var _throttle := 0.0
@@ -19,12 +20,15 @@ var _lit_valid := false
 func _ready() -> void:
 	sun = get_tree().get_first_node_in_group("sun")
 
-func sense(target_point: Vector3, target_speed: float, target_visibility: float) -> Dictionary:
+func sense(target_point: Vector3, target_speed: float, target_visibility: float,
+		target_body: CharacterBody3D = null) -> Dictionary:
 	var body := get_parent() as CharacterBody3D
+	if target_body == null:
+		target_body = get_tree().get_first_node_in_group("player") as CharacterBody3D
 	var eye := global_position
 	var to_target := target_point - eye
 	var distance := to_target.length()
-	if distance > effective_range(body, target_point):
+	if distance <= 0.001 or distance > effective_range(body, target_point):
 		return miss()
 	var dir := to_target / distance
 	var facing := -body.global_transform.basis.z
@@ -43,17 +47,12 @@ func sense(target_point: Vector3, target_speed: float, target_visibility: float)
 	if cone <= 0.0 or vertical <= 0.0:
 		return miss()
 	var obst := space_query(eye, target_point)
-	var collider: Object = obst.get("collider")
-	var visible := false
-	if collider == null:
-		visible = true
-	elif collider is CharacterBody3D and collider != body:
-		visible = true
-	if not visible:
+	if not line_of_sight_clear(obst, target_body):
 		return miss()
 	var dist_falloff := clampf(1.0 - distance / effective_range(body, target_point), 0.0, 1.0)
 	var movement_mul := 1.0 + clampf(target_speed / 5.0, 0.0, 1.0) * 0.6
-	var score := clampf(target_visibility * cone * vertical * dist_falloff * lit_at(target_point) * movement_mul, 0.0, 1.0)
+	var vegetation_transmission := vegetation_line_transmission(eye, target_point)
+	var score := clampf(target_visibility * cone * vertical * dist_falloff * lit_at(target_point) * movement_mul * vegetation_transmission, 0.0, 1.0)
 	return {
 		"visible": true,
 		"score": score,
@@ -62,10 +61,20 @@ func sense(target_point: Vector3, target_speed: float, target_visibility: float)
 		"bearing": horizontal,
 	}
 
+func line_of_sight_clear(hit: Dictionary, target_body: CharacterBody3D) -> bool:
+	var collider: Object = hit.get("collider")
+	return collider == null or collider == target_body
+
 func effective_range(body: CharacterBody3D, target_point: Vector3) -> float:
 	if global_position.y - target_point.y > 1.0:
-		return MAX_RANGE * ELEVATION_RANGE_BONUS
-	return MAX_RANGE
+		return sensing_range * ELEVATION_RANGE_BONUS
+	return sensing_range
+
+func vegetation_line_transmission(from: Vector3, to: Vector3) -> float:
+	var region := get_tree().get_first_node_in_group("visual_wilderness_region") as VisualWildernessProof1
+	if region == null:
+		return 1.0
+	return region.vegetation_line_transmission(from, to)
 
 func miss() -> Dictionary:
 	return {"visible": false, "score": 0.0, "position": Vector3.ZERO, "distance": INF, "bearing": Vector3.ZERO}
@@ -87,20 +96,46 @@ func lit_at(point: Vector3) -> float:
 
 func _refresh_lit(point: Vector3) -> void:
 	_lit_valid = true
-	if sun == null:
-		_lit_clear = true
-		return
 	var body := get_parent() as CharacterBody3D
-	var sun_pos := sun.global_position
-	var dir := sun_pos - point
-	if dir.length_squared() < 0.001:
+	if body == null:
+		_lit_clear = false
+		return
+	if _lit_by_local_fixture(point, body):
 		_lit_clear = true
 		return
-	dir = dir.normalized()
-	var start := point + Vector3.UP * 0.4
-	var query := PhysicsRayQueryParameters3D.create(start, start + dir * SUN_SAMPLE_DIST)
+	var light := sun as DirectionalLight3D
+	if light == null or light.light_energy <= 0.01:
+		_lit_clear = false
+		return
+	var toward_light: Vector3 = light.global_transform.basis.z.normalized()
+	if toward_light.dot(Vector3.UP) <= 0.01:
+		_lit_clear = false
+		return
+	var query := PhysicsRayQueryParameters3D.create(point + Vector3.UP * 0.2, point + toward_light * SUN_SAMPLE_DIST)
 	query.collision_mask = 1
 	query.collide_with_areas = false
-	query.exclude = [body.get_rid()]
+	query.exclude = _perception_exclusions(body)
 	var hit := body.get_world_3d().direct_space_state.intersect_ray(query)
 	_lit_clear = hit.is_empty()
+
+func _lit_by_local_fixture(point: Vector3, body: CharacterBody3D) -> bool:
+	for node in get_tree().get_nodes_in_group("perception_light"):
+		var fixture := node as OmniLight3D
+		if fixture == null or not fixture.visible or fixture.light_energy <= 0.01:
+			continue
+		if fixture.global_position.distance_to(point) > fixture.omni_range:
+			continue
+		var query := PhysicsRayQueryParameters3D.create(fixture.global_position, point)
+		query.collision_mask = 1
+		query.collide_with_areas = false
+		query.exclude = _perception_exclusions(body)
+		if body.get_world_3d().direct_space_state.intersect_ray(query).is_empty():
+			return true
+	return false
+
+func _perception_exclusions(body: CharacterBody3D) -> Array[RID]:
+	var excluded: Array[RID] = [body.get_rid()]
+	var target := get_tree().get_first_node_in_group("player") as CharacterBody3D
+	if target != null:
+		excluded.append(target.get_rid())
+	return excluded
