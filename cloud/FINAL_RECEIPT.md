@@ -1,143 +1,95 @@
-# BLACK VECTOR — FINAL CLOUD RECEIPT
+# BLACK VECTOR — AUTONOMOUS CLOUD RUN RECEIPT
 
-Status: TEMPLATE — CLOUD MUST REPLACE WITH EVIDENCE.
+## 1. Final verdict
 
-## 1. Verdict
+`BLACK_VECTOR_CLOUD_PRODUCTION_BLOCKED`
 
-PENDING
+The run stopped at BV-C1 before asset creation or admission because the required `game-dev` asset pipeline CLI is unavailable. BV-C1 through BV-C13 are not complete. The existing character proxy and prototype-looking environment remain open P1 production defects.
 
-## 2. Source identity
+## 2. Final checkpoint
 
-- repository:
-- branch:
-- starting SHA:
-- final SHA:
-- tree:
-- local-delta reconciliation:
+- Repository: `AnonymousNomad/black-vector`
+- Branch: `cloud-handoff-black-vector`
+- C0 production checkpoint: `7c196a27fc4035d710d596b9053ecd6fe3b46862` (pushed and verified on `origin/cloud-handoff-black-vector`)
+- Receipt checkpoint: the branch tip containing this receipt; exact tip is reported in the run handoff.
+- Tree: clean when committed.
+- Merge to `main`: none.
 
-## 3. Character
+## 3. C0 reconciliation
 
-PENDING
+Status: `BV-C0_RECONCILED_WITH_KNOWN_LOCAL_DELTA`; this does **not** mean `PHASE-02 ACCEPTED`. The absent `1292c67` commit and its historical screenshots/report are recorded as a known gap. No byte-equivalence or historical critic verdict is claimed. See [`RECONCILIATION.md`](RECONCILIATION.md).
 
-## 4. Animation / locomotion
+## 4. Corley
 
-PENDING
+- Model: procedural primitive proxy remains in ordinary play.
+- Skeleton/skinning: no production rig verified.
+- Animation/clothing/hair/injury presentation: production path not verified; opening-wardrobe target remains unmet.
+- Normal-play evidence: [C0 llvmpipe capture](evidence/bv-c0/current-normal-play-llvmpipe-1280x720.png) shows the proxy and is evidence of the open visual defect.
 
-## 5. Environment / graphics
+## 5. World / graphics
 
-PENDING
+The current scene combines generated geometric wilderness with graybox/primitive props. Ambient and light-energy regressions were repaired, and the presentation collider no longer blocks the authored Strand floor. Environment production-quality acceptance is not met.
 
-## 6. Human AI / routines
+## 6–15. AI, stealth, knowledge, consequence, combat, physiology, equipment, objectives, and content
 
-PENDING
+These queues were not reviewed or accepted in this run. Existing code and docs are not treated as proof that their player-facing gates pass.
 
-## 7. Perception / stealth
+## 16. Persistence / recovery
 
-PENDING
-
-## 8. Evidence / knowledge
-
-PENDING
-
-## 9. Heat / identity / consequence
-
-PENDING
-
-## 10. Combat
-
-PENDING
-
-## 11. Injury / physiology
-
-PENDING
-
-## 12. Equipment
-
-PENDING
-
-## 13. Tactical problem / solution paths
-
-PENDING
-
-## 14. Authored content / world
-
-PENDING
-
-## 15. Audio / feedback
-
-PENDING
-
-## 16. Persistence / save schema
-
-PENDING
+The Foundation harness save/load round-trip check passed. Close/relaunch recovery, interruption recovery, and full progression duplication tests were not run in this blocked run.
 
 ## 17. Performance
 
-PENDING
+The only render capture used Godot 4.7.2 GL Compatibility on Mesa llvmpipe software rendering. It is not hardware performance evidence. No Android performance acceptance is claimed.
 
 ## 18. Android build
 
-PENDING
+- APK: none produced in this run.
+- Package/ABI/hash: not applicable.
+- Physical device: not tested.
 
-## 19. APK identity
+## 19. Automated verification
 
-- path:
-- bytes:
-- SHA-256:
-- package:
-- version:
-- ABI:
-- signer:
+- Foundation self-check: **23 pass / 0 fail**; four ObjectDB shutdown leak warnings remain.
+- Static verifier: **39 OK / 0 fail**.
+- Strict Godot editor parser gate: passed.
+- Methodology validator: passed with an in-memory root override because its default `/black-vector` path does not match this checkout.
 
-## 20. Verification
+These checks cover the C0 foundation only, not the full production queue.
 
-### FAST
-PENDING
+## 20–21. Veritas-style and Ghost-style review
 
-### SLICE
-PENDING
+No fresh-context integrated reviews were run. The queue stopped before those gates.
 
-### RELEASE
-PENDING
-
-## 21. Fresh reviews
-
-- technical:
-- character:
-- visual:
-- gameplay:
-- stealth:
-- AI:
-- combat:
-- world:
-- canon:
-- persistence:
-- performance:
-- QA:
-
-## 22. Known defects
+## 22. Defect register
 
 ### P0
-PENDING
+
+No new data-loss, unrecoverable-save, or boot failure was identified by the C0 checks.
 
 ### P1
-PENDING
+
+- BV-C1 production character is unavailable; the primitive proxy remains in normal play.
+- The environment still reads as a prototype and fails the visual quality bar.
+- BV-C1 through BV-C13 remain unaccepted; systems outside C0 have not had an integrated review.
 
 ### P2
-PENDING
+
+- Godot reports four ObjectDB instances leaked at harness shutdown.
+- Physical Android behavior and performance are unverified.
 
 ## 23. Deferred canon
 
-PENDING
+Telekinesis, Brain Agony, underground-complex discovery, Katie active support, full Shade arc, Shadow/Falcon/Wildfire runtimes, full Hidden Hand reconstruction, full firearms simulation, island-wide institutional war, settlement simulation, whole-Alaska open world, and feral swine remain deferred unless newer repository canon authorizes them.
 
-## 24. Device status
+## 24. Physical device status
 
-PENDING
+`PHYSICAL_ANDROID_NOT_TESTED` — no Samsung device was available.
 
-## 25. Exact operator action
+## 25. Exact remaining work / blocker
 
-PENDING
+The environment must expose the supported `game-dev` CLI and its auditable asset workflow. `command -v game-dev` returned no executable. The C1 character source must then be produced or located, validated for license/provenance, packaged, and admitted through the documented workflow. No software was installed, no provider was substituted, and no credential was requested. After C1, resume the mission queue at C2; do not skip to C13.
 
-## Final classification
+## 26. Final classification
 
-PENDING
+`BLACK_VECTOR_CLOUD_PRODUCTION_BLOCKED`

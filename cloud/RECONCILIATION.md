@@ -1,6 +1,8 @@
 # BLACK VECTOR — C0 Source Reconciliation
 
-Status: **PARTIAL — Phase-02 visual acceptance remains unevaluable and the production-character gate is open.**
+C0 status: **`BV-C0_RECONCILED_WITH_KNOWN_LOCAL_DELTA`**.
+
+Phase-02 verdict: **NOT ACCEPTED** — the historical visual and motion evidence is unavailable, and the current proxy fails the visual bar.
 
 ## Source truth
 

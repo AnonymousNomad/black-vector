@@ -42,7 +42,7 @@ Next mission:
 
 ## BV-C0 reconciliation checkpoint — 2026-10-23
 
-Status: **PARTIAL — do not claim Phase-02 acceptance.** The expected local candidate `1292c67` is absent from Git object storage, and the recovered character and motion evidence binaries were not included in the handoff. See [`cloud/RECONCILIATION.md`](RECONCILIATION.md) for source facts and limits.
+Status: **`BV-C0_RECONCILED_WITH_KNOWN_LOCAL_DELTA` — do not claim Phase-02 acceptance.** The expected local candidate `1292c67` is absent from Git object storage, and the recovered character and motion evidence binaries were not included in the handoff. The historical gap is recorded and no further recovery search is planned. See [`cloud/RECONCILIATION.md`](RECONCILIATION.md) for source facts and limits.
 
 Re-established in the accessible source line:
 - explicit COLOR ambient at 0.30 and corrected `Sky.sky_material` assignment;
@@ -58,3 +58,9 @@ The capture still shows a primitive Corley proxy and simple geometric environmen
 ### C0 remote verification
 
 The C0 checkpoint `7c196a27fc4035d710d596b9053ecd6fe3b46862` was pushed to `origin/cloud-handoff-black-vector`. `git ls-remote --heads origin cloud-handoff-black-vector` returned the same SHA. No merge to `main` was performed. C0 remains reconciled with the known local delta, not Phase-02 accepted.
+
+## BV-C1 — production character closure — 2026-10-23
+
+Status: **BLOCKED before asset creation or admission.** The required `game-dev` CLI is unavailable (`command -v game-dev` returned no executable). The game asset production/vendoring workflow requires that CLI for source inspection, package provenance/license validation, canonical packaging, and project admission. This repository has no production Corley model or texture package. No provider job, external download, asset package, or project admission was attempted; no substitute provider was used. No software was installed and no credentials were requested. C1 remains open until the supported CLI and auditable asset workflow are available.
+
+This is the first queue stop: the player character is P0 and must not be skipped or represented as complete with the existing proxy. Independent missions were not started because the approved queue puts C1 first and C2 visual acceptance depends on a production character. The final receipt records the exact blocker and C0 evidence.
