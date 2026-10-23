@@ -46,10 +46,11 @@ func _configure_environment() -> void:
 	sky_material.ground_horizon_color = Color("#829497")
 	sky_material.sun_angle_max = 18.0
 	sky_material.sun_curve = 0.08
-	sky.material = sky_material
+	sky.sky_material = sky_material
 	environment.sky = sky
-	environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	environment.ambient_light_energy = 0.72
+	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	environment.ambient_light_color = Color("#8ea5a6")
+	environment.ambient_light_energy = 0.3
 	environment.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	environment.tonemap_exposure = 1.08
@@ -149,6 +150,10 @@ func _build_terrain() -> void:
 	shape.set_faces(faces)
 	var terrain_collision := get_node("Region/Cell_0_0/Terrain/TerrainBase/TerrainCollision") as CollisionShape3D
 	terrain_collision.shape = shape
+	# This scene is a presentation overlay on top of the playable Strand/Cannery
+	# scenes. Its coplanar mesh used to trap the CharacterBody against their floors.
+	var terrain_base := get_node("Region/Cell_0_0/Terrain/TerrainBase") as StaticBody3D
+	terrain_base.collision_layer = 0
 
 func _strip_mesh(points: Array[Vector2], width: float, material: Material, y_offset := 0.025) -> ArrayMesh:
 	var mesh := ArrayMesh.new()
@@ -163,7 +168,7 @@ func _strip_mesh(points: Array[Vector2], width: float, material: Material, y_off
 		var direction := (following - previous).normalized()
 		var side := Vector2(-direction.y, direction.x) * width * 0.5
 		for side_sign in [-1.0, 1.0]:
-			var edge := point + side * side_sign
+			var edge: Vector2 = point + side * float(side_sign)
 			vertices.append(Vector3(edge.x, _terrain_height(edge.x, edge.y) + y_offset, edge.y))
 			normals.append(Vector3.UP)
 			uvs.append(Vector2(float(i) / float(points.size() - 1), 0.5 + side_sign * 0.5))

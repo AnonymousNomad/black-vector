@@ -65,10 +65,10 @@ script = ExtResource("12")
 [node name="PitchPivot" type="Node3D" parent="CameraRig"]
 
 [node name="SpringArm3D" type="SpringArm3D" parent="CameraRig/PitchPivot"]
-rotation_degrees = Vector3(0, 180, 0)
+rotation_degrees = Vector3(0, 0, 0)
 spring_length = 4.0
 collision_mask = 1
 
 [node name="Camera3D" type="Camera3D" parent="CameraRig/PitchPivot/SpringArm3D"]
-rotation_degrees = Vector3(0, 180, 0)
+rotation_degrees = Vector3(0, 0, 0)
 fov = 70.0

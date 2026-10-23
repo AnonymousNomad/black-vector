@@ -12,6 +12,7 @@ const SIGNATURE_ID := "f1_cannery_signature"
 const FIRST_RESTORE_SEEN := "f1_gyle_cannery_first_restore"
 const SEIZED_SEEN := "f1_cannery_machinery_seized_seen"
 const HEAT_RADIUS := 6.0
+const INTERIOR_LIGHT_ON_ENERGY := 1.8
 
 var world: WorldStateManager
 var save: SaveStateManager
@@ -95,7 +96,9 @@ func _toggle_light() -> void:
 func _apply_light() -> void:
 	if _light == null or world == null:
 		return
-	_light.visible = bool(world.object_state(LIGHT_ID).get("on", false))
+	var is_on := bool(world.object_state(LIGHT_ID).get("on", false))
+	_light.visible = is_on
+	_light.light_energy = INTERIOR_LIGHT_ON_ENERGY if is_on else 0.0
 
 func _project_power() -> void:
 	if _machinery == null or world == null:

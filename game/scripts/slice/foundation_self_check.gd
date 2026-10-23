@@ -56,6 +56,9 @@ func _run_checks() -> void:
 	_check_d032_heat_off()
 	_check_d032_deepgate()
 	_check_d032_restore_marker()
+	_check_d032_light_energy_projection()
+	_check_visual_ambient_contract()
+	await _check_motion_grounding()
 
 func _check_boot() -> void:
 	_add("1 project boot", true, "Godot %s" % Engine.get_version_info()["string"])
@@ -120,11 +123,22 @@ func _check_camera_structure() -> void:
 	if player == null:
 		_add("8 camera structure", false, "no player node")
 		return
-	var cam := player.get_node_or_null("CameraRig")
-	if cam == null:
-		_add("8 camera structure", false, "CameraRig missing on player")
+	var camera_rig := player.get_node_or_null("CameraRig")
+	var camera := player.get_node_or_null("CameraRig/PitchPivot/SpringArm3D/Camera3D") as Camera3D
+	var spring_arm := player.get_node_or_null("CameraRig/PitchPivot/SpringArm3D") as SpringArm3D
+	if camera_rig == null or camera == null or spring_arm == null:
+		_add("8 camera structure", false, "CameraRig/SpringArm/Camera3D missing on player")
 		return
-	_add("8 camera structure", true, "CameraRig present on player (follow test manual)")
+	var active := get_viewport().get_camera_3d() == camera
+	var distance := camera.global_position.distance_to(player.global_position)
+	var to_player := (player.global_position + Vector3.UP - camera.global_position).normalized()
+	var forward_alignment := (-camera.global_transform.basis.z).dot(to_player)
+	var player_forward := -player.global_transform.basis.z
+	var camera_behind := player_forward.dot((camera.global_position - player.global_position).normalized()) <= -0.8
+	var visible_framing := active and distance >= 1.5 and forward_alignment >= 0.8 and camera_behind
+	_add("8 camera structure", visible_framing,
+		"active=%s player_distance=%.2f m forward_alignment=%.2f behind_alignment=%.2f camera_position=%s spring_length=%.2f m hit_length=%.2f m" % [
+			active, distance, forward_alignment, player_forward.dot((camera.global_position - player.global_position).normalized()), camera.global_position, spring_arm.spring_length, spring_arm.get_hit_length()])
 
 func _check_save_round_trip() -> void:
 	var gw := get_tree().get_first_node_in_group("game_world")
@@ -362,10 +376,11 @@ func _check_d032_heat_off() -> void:
 	if mach == null or light == null:
 		_add("18 D032 S-3 unpowered projection", false, "Machinery01/InteriorLight missing")
 		return
-	var ok: bool = not mach.is_in_group("shelter_zone") and float(mach.get("shelter_radius")) == 0.0 and not light.visible
+	var ok: bool = not mach.is_in_group("shelter_zone") and float(mach.get("shelter_radius")) == 0.0 \
+		and not light.visible and is_zero_approx(light.light_energy)
 	_add("18 D032 S-3 unpowered projection", ok,
-		"heat_zone=%s shelter_radius=%.1f light_visible=%s" % [
-			mach.is_in_group("shelter_zone"), float(mach.get("shelter_radius")), light.visible])
+		"heat_zone=%s shelter_radius=%.1f light_visible=%s light_energy=%.2f" % [
+			mach.is_in_group("shelter_zone"), float(mach.get("shelter_radius")), light.visible, light.light_energy])
 
 func _check_d032_deepgate() -> void:
 	var gw := get_tree().get_first_node_in_group("game_world")
@@ -378,10 +393,10 @@ func _check_d032_deepgate() -> void:
 		return
 	var ok: bool = gate.is_in_group("context_inspect") and not gate.is_in_group("context_open") \
 		and not ws.object_state("f1_gyle_cannery_gate").has("open") \
-		and int(gate.get("collision_layer")) == 1 and not deep.visible
+		and int(gate.get("collision_layer")) == 1 and not deep.visible and is_zero_approx(deep.light_energy)
 	_add("19 D032 S-3 deep gate sealed", ok,
-		"inspect=%s open=%s layer=%d deep_light=%s" % [
-			gate.is_in_group("context_inspect"), gate.is_in_group("context_open"), int(gate.get("collision_layer")), deep.visible])
+		"inspect=%s open=%s layer=%d deep_light=%s energy=%.2f" % [
+			gate.is_in_group("context_inspect"), gate.is_in_group("context_open"), int(gate.get("collision_layer")), deep.visible, deep.light_energy])
 
 func _check_d032_restore_marker() -> void:
 	var gw := get_tree().get_first_node_in_group("game_world")
@@ -394,6 +409,75 @@ func _check_d032_restore_marker() -> void:
 	_add("20 D032 S-3 restore marker", ok,
 		"first_restore_seen=%s signature=%s" % [
 			ws.has_seen("f1_gyle_cannery_first_restore"), ws.object_state("f1_cannery_signature").has("heat_light")])
+
+func _check_d032_light_energy_projection() -> void:
+	var gw := get_tree().get_first_node_in_group("game_world")
+	var ws: WorldStateManager = gw.get_node_or_null("WorldState") as WorldStateManager if gw else null
+	var cannery := _d032_cannery_root()
+	var light: OmniLight3D = cannery.get_node_or_null("InteriorLight") as OmniLight3D if cannery else null
+	if ws == null or light == null:
+		_add("21 D032 light energy projection", false, "WorldState/InteriorLight missing")
+		return
+	var starts_off := not light.visible and is_zero_approx(light.light_energy)
+	ws.set_object_flag("f1_gyle_cannery_light", "on", true)
+	var turns_on := light.visible and is_equal_approx(light.light_energy, 1.8)
+	ws.set_object_flag("f1_gyle_cannery_light", "on", false)
+	var turns_off := not light.visible and is_zero_approx(light.light_energy)
+	_add("21 D032 light energy projection", starts_off and turns_on and turns_off,
+		"starts_off=%s turns_on=%s turns_off=%s final_energy=%.2f" % [starts_off, turns_on, turns_off, light.light_energy])
+
+func _check_visual_ambient_contract() -> void:
+	var region := get_tree().get_first_node_in_group("visual_wilderness_region") as VisualWildernessProof1
+	var world_environment: WorldEnvironment = region.get_node_or_null("WorldEnvironment") as WorldEnvironment if region else null
+	var environment: Environment = world_environment.environment if world_environment else null
+	if environment == null:
+		_add("22 GL Compatibility ambient contract", false, "visual region Environment missing")
+		return
+	var ok := environment.ambient_light_source == Environment.AMBIENT_SOURCE_COLOR \
+		and is_equal_approx(environment.ambient_light_energy, 0.3)
+	_add("22 GL Compatibility ambient contract", ok,
+		"source=%d energy=%.2f" % [environment.ambient_light_source, environment.ambient_light_energy])
+
+func _check_motion_grounding() -> void:
+	var player := get_tree().get_first_node_in_group("player") as CharacterBody3D
+	var stance := player.get_node_or_null("StanceController") as StanceController if player else null
+	if player == null or stance == null or not player.is_on_floor():
+		_add("23 locomotion grounding", false, "player, stance, or grounded start missing")
+		return
+	var start := player.global_position
+	Input.action_press("move_forward", 1.0)
+	for _frame in range(45):
+		await get_tree().physics_frame
+	Input.action_release("move_forward")
+	var walk_distance := player.global_position.distance_to(start)
+	var grounded_after_walk := player.is_on_floor()
+	Input.action_press("crouch")
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	Input.action_release("crouch")
+	var crouch_entered := stance.current == StanceController.Stance.CROUCH
+	Input.action_press("crouch")
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	Input.action_release("crouch")
+	var stand_restored := stance.current == StanceController.Stance.STAND
+	var query := PhysicsRayQueryParameters3D.create(
+		player.global_position + Vector3.UP * 0.1,
+		player.global_position - Vector3.UP * 0.2)
+	query.collision_mask = 1
+	query.exclude = [player.get_rid()]
+	var floor_hit := player.get_world_3d().direct_space_state.intersect_ray(query)
+	var contact_error := INF
+	if not floor_hit.is_empty():
+		contact_error = absf(player.global_position.y - (floor_hit["position"] as Vector3).y)
+	var visual_region := get_tree().get_first_node_in_group("visual_wilderness_region") as VisualWildernessProof1
+	var terrain_base := visual_region.get_node_or_null("Region/Cell_0_0/Terrain/TerrainBase") as StaticBody3D if visual_region else null
+	var terrain_nonblocking := terrain_base != null and terrain_base.collision_layer == 0
+	var ok := walk_distance > 0.5 and grounded_after_walk and crouch_entered and stand_restored \
+		and not floor_hit.is_empty() and contact_error <= 0.01 and terrain_nonblocking
+	_add("23 locomotion grounding", ok,
+		"walk=%.2f m grounded=%s crouch=%s stand=%s foot_gap=%.3f m presentation_collider_nonblocking=%s" % [
+			walk_distance, grounded_after_walk, crouch_entered, stand_restored, contact_error, terrain_nonblocking])
 
 func _channel_values(snap: Dictionary) -> Dictionary:
 	var out := {}
