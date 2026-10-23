@@ -1,0 +1,98 @@
+{
+  "schema": "black-vector-cloud-mission-queue/1",
+  "branch": "cloud-handoff-black-vector",
+  "policy": {
+    "autonomous_between_phases": true,
+    "merge_main": false,
+    "external_publish": false,
+    "physical_device_claim_without_device": false,
+    "verify_before_accept": true,
+    "log_each_accepted_slice": "cloud/WORK_LOG.md"
+  },
+  "missions": [
+    {
+      "id": "BV-C0",
+      "title": "Ground and reconcile missing local delta",
+      "priority": "P0",
+      "exit": "Phase-02 local-delta behavior and verification re-established or exact later source reconciled"
+    },
+    {
+      "id": "BV-C1",
+      "title": "Corley production character closure",
+      "priority": "P0",
+      "exit": "Corley no longer reads as procedural/placeholder in normal play"
+    },
+    {
+      "id": "BV-C2",
+      "title": "Production visual world pass",
+      "priority": "P0",
+      "exit": "Playable slice is visually cohesive, cinematic and Android-scalable"
+    },
+    {
+      "id": "BV-C3",
+      "title": "Human AI and routines",
+      "priority": "P0",
+      "exit": "Representative humans run believable independent routines and bounded knowledge"
+    },
+    {
+      "id": "BV-C4",
+      "title": "Perception and stealth",
+      "priority": "P0",
+      "exit": "Environment-driven stealth produces learnable, repeatable outcomes"
+    },
+    {
+      "id": "BV-C5",
+      "title": "Evidence knowledge heat consequence",
+      "priority": "P0",
+      "exit": "World reaction persists from plausible evidence and information flow"
+    },
+    {
+      "id": "BV-C6",
+      "title": "Grounded combat and physiology",
+      "priority": "P0",
+      "exit": "Combat is playable, dangerous, avoidable and stateful"
+    },
+    {
+      "id": "BV-C7",
+      "title": "Multi-solution tactical problem",
+      "priority": "P0",
+      "exit": "One substantial objective supports materially different approaches and consequences"
+    },
+    {
+      "id": "BV-C8",
+      "title": "Approved Season-One content thickening",
+      "priority": "P1",
+      "exit": "Continuous play is authored content, not only systems"
+    },
+    {
+      "id": "BV-C9",
+      "title": "Animation audio and feedback polish",
+      "priority": "P1",
+      "exit": "Normal play feels authored and coherent"
+    },
+    {
+      "id": "BV-C10",
+      "title": "Persistence and recovery",
+      "priority": "P0",
+      "exit": "Save/load/restart preserve canonical state without replay or duplication"
+    },
+    {
+      "id": "BV-C11",
+      "title": "Android performance production",
+      "priority": "P0",
+      "exit": "Cloud-verifiable performance/export gates green; physical-only facts labeled pending"
+    },
+    {
+      "id": "BV-C12",
+      "title": "Integrated fresh-context review",
+      "priority": "P0",
+      "exit": "Technical/character/visual/gameplay/AI/stealth/combat/world/canon/persistence/performance/QA reviews closed"
+    },
+    {
+      "id": "BV-C13",
+      "title": "Cloud release-candidate handoff",
+      "priority": "P0",
+      "exit": "Clean pushed SHA, Android artifact identity, evidence bundle and final receipt"
+    }
+  ]
+}
